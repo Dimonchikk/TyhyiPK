@@ -20,8 +20,12 @@ namespace TyhyiPK
         static bool dirty;
 
         public static double Tariff = 4.32;   // ₴ за кВт·год
-        public static double RestW;           // плата, пам'ять, диски, вентилятори, монітор
-        public static int Efficiency = 85;    // ККД блока живлення, %
+        public static double RestW;           // «Решта ПК» вручну: плата, пам'ять, диски, вентилятори
+        public static int Efficiency = 85;    // ККД блока живлення вручну, %
+        // «Авто»: решту програма рахує сама з того, що знайде в ПК, а ККД — за навантаженням на блок живлення.
+        public static bool RestAuto = true, EffAuto = true;
+        public static double AutoRest = double.NaN, EffNow = double.NaN, PsuW;
+        public static string RestParts = "";
 
         // Останній розрахунок (для показу).
         public static double WallW = double.NaN, CpuW, GpuW;
@@ -32,6 +36,10 @@ namespace TyhyiPK
             Tariff = Parse(Settings.Get("Tariff", "4.32"), 4.32);
             RestW = Parse(Settings.Get("RestW", laptop ? "8" : "45"), laptop ? 8 : 45);
             Efficiency = (int)Parse(Settings.Get("PsuEff", laptop ? "90" : "85"), 85);
+            RestAuto = Settings.GetBool("RestAuto", true);
+            EffAuto = Settings.GetBool("EffAuto", true);
+            gpuRef = Parse(Settings.Get("PsuGpuRef", "0"), 0);
+            System.Threading.ThreadPool.QueueUserWorkItem(_ => ScanHardware());
             try
             {
                 if (!File.Exists(FilePath)) return;
@@ -67,6 +75,8 @@ namespace TyhyiPK
             Settings.Set("Tariff", Tariff.ToString(Inv));
             Settings.Set("RestW", RestW.ToString(Inv));
             Settings.Set("PsuEff", Efficiency.ToString(Inv));
+            Settings.SetBool("RestAuto", RestAuto);
+            Settings.SetBool("EffAuto", EffAuto);
         }
 
         public static void Save()
@@ -100,6 +110,10 @@ namespace TyhyiPK
                 CpuW = laptop ? 3 + 22 * load : 10 + 55 * load;   // приблизно, якщо немає датчика
             }
             GpuW = !double.IsNaN(s.GpuDraw) ? s.GpuDraw : !double.IsNaN(s.GpuPowerLhm) ? s.GpuPowerLhm : 0;
+            AutoRest = EstimateRest(s, laptop);
+            double rest = RestAuto ? AutoRest : RestW;
+            PsuW = PsuCapacity(s, laptop);
+            EffNow = EffAuto ? (laptop ? 0.88 : EffCurve((CpuW + GpuW + rest) / PsuW)) : Math.Max(50, Math.Min(100, Efficiency)) / 100.0;
             if (!double.IsNaN(s.BatteryW) && s.BatteryW > 0)
             {
                 WallW = s.BatteryW;      // на батареї — справжнє виміряне споживання
@@ -107,7 +121,7 @@ namespace TyhyiPK
             }
             else
             {
-                WallW = (CpuW + GpuW + RestW) / (Math.Max(50, Math.Min(100, Efficiency)) / 100.0);
+                WallW = (CpuW + GpuW + rest) / EffNow;
                 Measured = false;
             }
 
@@ -131,6 +145,84 @@ namespace TyhyiPK
             }
             lastSample = s.Time;
             if ((DateTime.UtcNow - lastSave).TotalSeconds >= 60) { Save(); lastSave = DateTime.UtcNow; }
+        }
+
+        // ── «Авто»: з чого складається решта ПК ──
+        static volatile bool scanned;
+        static int ramModules, nvme, sataSsd, hdd;
+        static bool ddr5;
+        static double gpuRef;   // найбільший ліміт/споживання відеокарти — щоб прикинути потужність блока живлення
+
+        static void ScanHardware()
+        {
+            try
+            {
+                using (var q = new ManagementObjectSearcher("SELECT SMBIOSMemoryType FROM Win32_PhysicalMemory"))
+                    foreach (ManagementObject mo in q.Get())
+                        using (mo)
+                        {
+                            ramModules++;
+                            try { if (Convert.ToInt32(mo["SMBIOSMemoryType"]) >= 34) ddr5 = true; } catch { }
+                        }
+            }
+            catch { }
+            try
+            {
+                using (var q = new ManagementObjectSearcher("root\\Microsoft\\Windows\\Storage", "SELECT MediaType, BusType FROM MSFT_PhysicalDisk"))
+                    foreach (ManagementObject mo in q.Get())
+                        using (mo)
+                        {
+                            int media = 0, bus = 0;
+                            try { media = Convert.ToInt32(mo["MediaType"]); } catch { }
+                            try { bus = Convert.ToInt32(mo["BusType"]); } catch { }
+                            if (bus == 7) continue;              // USB-диски живляться окремо або мало
+                            if (bus == 17) nvme++;
+                            else if (media == 3) hdd++;
+                            else sataSsd++;
+                        }
+            }
+            catch { }
+            scanned = true;
+        }
+
+        // Скільки споживає все, крім процесора й відеокарти (у ватах, на виході блока живлення).
+        static double EstimateRest(Snapshot s, bool laptop)
+        {
+            // Плата, чипсет, мережа, USB (клавіатура й мишка) + втрати в живленні процесора на платі (≈13% від його споживання).
+            double board = laptop ? 7 : 13.5 + CpuW * 0.13;
+            double ram = (ramModules > 0 ? ramModules : 2) * (laptop ? 1.0 : ddr5 ? 2.5 : 2.0);
+            double disks = scanned && nvme + sataSsd + hdd > 0 ? nvme * 2.5 + sataSsd * 1.5 + hdd * 6 : 4;
+            int fans = s.FanCount > 0 ? s.FanCount : (laptop ? 1 : 3);
+            double fanW = fans * (laptop ? 0.8 : 1.5);
+            RestParts = "плата " + Math.Round(board) + " + пам'ять " + Math.Round(ram) + " + диски " + Math.Round(disks) +
+                        " + вентилятори " + Math.Round(fanW) + " Вт";
+            return board + ram + disks + fanW;
+        }
+
+        // Потужність блока живлення: прикидаємо за відеокартою (так їх зазвичай і підбирають).
+        static double PsuCapacity(Snapshot s, bool laptop)
+        {
+            if (laptop) return 120;
+            double g = Math.Max(double.IsNaN(Gpu.Default) ? 0 : Gpu.Default, GpuW);
+            if (!double.IsNaN(s.GpuLimit)) g = Math.Max(g, s.GpuLimit);
+            if (g > gpuRef + 1) { gpuRef = g; Settings.Set("PsuGpuRef", Math.Round(g).ToString(Inv)); }
+            double cap = Math.Round((gpuRef + 150) * 1.6 / 50) * 50;
+            return Math.Max(300, Math.Min(1200, cap));
+        }
+
+        // ККД типового блока живлення (80 PLUS Bronze, мережа 230 В) залежно від навантаження.
+        static readonly double[,] Curve = { { 0, 0.70 }, { 0.05, 0.76 }, { 0.10, 0.83 }, { 0.20, 0.87 }, { 0.50, 0.90 }, { 0.80, 0.89 }, { 1.00, 0.87 }, { 1.30, 0.84 } };
+        public static double EffCurve(double load)
+        {
+            int n = Curve.GetLength(0);
+            if (load <= Curve[0, 0]) return Curve[0, 1];
+            for (int i = 1; i < n; i++)
+                if (load <= Curve[i, 0])
+                {
+                    double k = (load - Curve[i - 1, 0]) / (Curve[i, 0] - Curve[i - 1, 0]);
+                    return Curve[i - 1, 1] + k * (Curve[i, 1] - Curve[i - 1, 1]);
+                }
+            return Curve[n - 1, 1];
         }
 
         public static double Day(DateTime d)

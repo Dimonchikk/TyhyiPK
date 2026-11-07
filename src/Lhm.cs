@@ -15,6 +15,7 @@ namespace TyhyiPK
     {
         public double CpuTemp = double.NaN, GpuTemp = double.NaN, CpuPower = double.NaN, Fan = double.NaN, GpuPower = double.NaN;
         public bool FanIsCpu;
+        public int FanCount;
     }
 
     static class Lhm
@@ -259,6 +260,7 @@ namespace TyhyiPK
                         {
                             if (st == "Fan" && v > 0)
                             {
+                                d.FanCount++;
                                 bool cpuFan = name.IndexOf("CPU", StringComparison.OrdinalIgnoreCase) >= 0;
                                 if (double.IsNaN(d.Fan) || (cpuFan && !d.FanIsCpu)) { d.Fan = v; d.FanIsCpu = cpuFan; }
                             }

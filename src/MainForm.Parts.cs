@@ -523,6 +523,7 @@ namespace TyhyiPK
                 s.CpuPower = d.CpuPower;
                 s.Fan = d.Fan;
                 s.FanIsCpu = d.FanIsCpu;
+                s.FanCount = d.FanCount;
                 if (Gpu.Smi != null && (!vis || tick % 2 == 0))
                 {
                     double[] v;

@@ -11,7 +11,7 @@ namespace TyhyiPK
         StatTile eNow, eToday, eMonth, eForecast, wHours, wCpu, wGpu, wCost;
         BarChart bars;
         NumBox nbTariff, nbRest;
-        Segmented segEff;
+        Segmented segEff, segRest;
         static readonly int[] EffValues = { 80, 85, 90 };
 
         void BuildEnergy()
@@ -38,7 +38,7 @@ namespace TyhyiPK
             wGpu = Tile(p, 2, 286, 80, "Відеокарта, макс.");
             wCost = Tile(p, 3, 286, 80, "Електрика");
 
-            p.SetCaption("set", Ui.R(40, 382, 520, 18), "Налаштування");
+            p.SetCaption("set", Ui.R(40, 382, 520, 18), "Налаштування|«Авто» рахує сам — як показала б розумна розетка");
             p.Cards.Add(Ui.R(24, 402, 552, 132));
             EnergyLabel("Тариф, ₴ за кВт·год", 402);
             nbTariff = new NumBox { Min = 0.01, Max = 100, Step = 0.01, Format = "0.00" };
@@ -46,22 +46,42 @@ namespace TyhyiPK
             nbTariff.Value = Energy.Tariff;
             p.Controls.Add(nbTariff);
             p.Lines.Add(Ui.R(40, 446, 536, 0));
-            EnergyLabel("Решта ПК, Вт (плата, пам'ять, диски, монітор)", 446);
+            EnergyLabel("Решта ПК, Вт", 446);
+            segRest = new Segmented();
+            segRest.Items = new[] { "Авто", "Вручну" };
+            segRest.Bounds = Ui.R(290, 452, 160, 32);
+            segRest.Selected = Energy.RestAuto ? 0 : 1;
+            p.Controls.Add(segRest);
             nbRest = new NumBox { Min = 0, Max = 1000, Step = 5, Format = "0" };
             nbRest.Bounds = Ui.R(466, 453, 94, 30);
-            nbRest.Value = Energy.RestW;
+            nbRest.Value = Energy.RestAuto && !double.IsNaN(Energy.AutoRest) ? Math.Round(Energy.AutoRest) : Energy.RestW;
             p.Controls.Add(nbRest);
             p.Lines.Add(Ui.R(40, 490, 536, 0));
             EnergyLabel(hasBattery ? "ККД зарядного пристрою" : "ККД блока живлення", 490);
             segEff = new Segmented();
-            segEff.Items = new[] { "80%", "85%", "90%" };
-            segEff.Bounds = Ui.R(360, 496, 200, 32);
-            segEff.Selected = Math.Max(0, Array.IndexOf(EffValues, Energy.Efficiency));
+            segEff.Items = new[] { "Авто", "80%", "85%", "90%" };
+            segEff.Bounds = Ui.R(290, 496, 270, 32);
+            segEff.Selected = Energy.EffAuto ? 0 : 1 + Math.Max(0, Array.IndexOf(EffValues, Energy.Efficiency));
             p.Controls.Add(segEff);
 
             nbTariff.Changed += (s, e) => { Energy.Tariff = nbTariff.Value; Energy.SaveSettings(); RefreshEnergy(); };
-            nbRest.Changed += (s, e) => { Energy.RestW = nbRest.Value; Energy.SaveSettings(); RefreshEnergy(); };
-            segEff.ItemClicked += i => { segEff.Selected = i; Energy.Efficiency = EffValues[i]; Energy.SaveSettings(); RefreshEnergy(); };
+            nbRest.Changed += (s, e) => { Energy.RestW = nbRest.Value; Energy.RestAuto = false; segRest.Selected = 1; Energy.SaveSettings(); RefreshEnergy(); };
+            segRest.ItemClicked += i =>
+            {
+                segRest.Selected = i;
+                Energy.RestAuto = i == 0;
+                if (i == 1) Energy.RestW = nbRest.Value;   // «Вручну» починається з того, що порахувало «Авто»
+                Energy.SaveSettings();
+                RefreshEnergy();
+            };
+            segEff.ItemClicked += i =>
+            {
+                segEff.Selected = i;
+                Energy.EffAuto = i == 0;
+                if (i > 0) Energy.Efficiency = EffValues[i - 1];
+                Energy.SaveSettings();
+                RefreshEnergy();
+            };
             RefreshEnergy();
         }
 
@@ -90,7 +110,7 @@ namespace TyhyiPK
 
         void EnergyLabel(string text, int y)
         {
-            Ui.MakeLabel(pageEnergy, text, Ui.R(40, y + 1, 310, 42), Ui.Body, Ui.CInk, Ui.CCard).TextAlign = ContentAlignment.MiddleLeft;
+            Ui.MakeLabel(pageEnergy, text, Ui.R(40, y + 1, 240, 42), Ui.Body, Ui.CInk, Ui.CCard).TextAlign = ContentAlignment.MiddleLeft;
         }
 
         void RefreshEnergy()
@@ -113,7 +133,9 @@ namespace TyhyiPK
             else
                 cap = "Зараз|із розетки: ЦП " + (Energy.CpuEstimated ? "≈" : "") + Watts(Energy.CpuW) +
                       (Energy.GpuW > 0 ? " + карта " + Watts(Energy.GpuW) : "") +
-                      " + решта " + Watts(Energy.RestW) + ", ККД " + Energy.Efficiency + "%";
+                      " + решта " + (Energy.RestAuto ? "≈" + Watts(Energy.AutoRest) : Watts(Energy.RestW)) +
+                      ", ККД " + (Energy.EffAuto ? "≈" : "") + Math.Round(Energy.EffNow * 100) + "%";
+            if (Energy.RestAuto && !double.IsNaN(Energy.AutoRest) && !nbRest.ContainsFocus) nbRest.Value = Math.Round(Energy.AutoRest);
             pageEnergy.SetCaption("now", pageEnergy.Captions.ContainsKey("now") ? pageEnergy.Captions["now"].Key : Ui.R(40, 6, 520, 18), cap);
             if (heroEnergy != null)
             {

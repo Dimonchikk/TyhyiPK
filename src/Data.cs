@@ -21,6 +21,7 @@ namespace TyhyiPK
         public double CpuTemp = double.NaN, GpuTemp = double.NaN, GpuDraw = double.NaN, GpuLimit = double.NaN,
             CpuPower = double.NaN, Fan = double.NaN, MemUsed = double.NaN, MemTotal = double.NaN;
         public bool CpuTempFromBoard, FanIsCpu;
+        public int FanCount;          // скільки вентиляторів на платі крутиться (з LibreHardwareMonitor)
         public DateTime Time = DateTime.UtcNow;
         public double GpuPowerLhm = double.NaN;   // споживання карти AMD/NVIDIA з LibreHardwareMonitor (якщо немає nvidia-smi)
         public double BatteryW = double.NaN;      // споживання з батареї (лише коли ноутбук не на зарядці)
