@@ -1,6 +1,6 @@
 // Тихий ПК — оновлення й підсумок тижня.
-// • Раз на добу питає GitHub про нову версію; якщо є — сповіщення й кнопка «Оновити до …» внизу бокового меню.
-//   Клік по «Версія …» внизу меню — перевірити зараз.
+// • Раз на добу питає GitHub про нову версію; якщо є — сповіщення, а синя кнопка внизу бокового меню
+//   стає «Оновити до …». Інакше ця кнопка — «Шукати оновлення» (перевірити зараз).
 // • У неділю ввечері (або при першому запуску після неї) — сповіщення з підсумком тижня.
 using System;
 using System.Collections.Generic;
@@ -56,7 +56,7 @@ namespace TyhyiPK
         void ShowUpdateState()
         {
             nav.Update = Updates.Latest;
-            lblStatus.Top = nav.FootTop + Ui.S(2) - lblStatus.Height;
+            lblStatus.Top = nav.FootTop - Ui.S(8) - lblStatus.Height;
             lblStatus.Visible = nav.ContentBottom < lblStatus.Top - Ui.S(8);
         }
 
@@ -64,20 +64,25 @@ namespace TyhyiPK
         {
             if (updChecking) return;
             updChecking = true;
-            if (manual) nav.VersionNote = "Перевіряю оновлення…";
+            if (manual) { nav.VersionNote = null; nav.Checking = true; }
             ThreadPool.QueueUserWorkItem(_ =>
             {
+                var t0 = DateTime.UtcNow;
                 string v = Updates.CheckNow();
+                // Щоб «Шукаю оновлення…» не блимнуло на мить.
+                int left = 900 - (int)(DateTime.UtcNow - t0).TotalMilliseconds;
+                if (manual && left > 0) Thread.Sleep(left);
                 try
                 {
                     BeginInvoke(new MethodInvoker(() =>
                     {
                         updChecking = false;
+                        nav.Checking = false;
                         string latest = Updates.Latest;
                         ShowUpdateState();
                         if (manual)
                         {
-                            nav.VersionNote = v == null ? "Не вдалося перевірити" : latest == null ? "Версія " + AppVersion.Text + " — найновіша" : null;
+                            nav.VersionNote = v == null ? "Немає зв'язку з GitHub" : latest == null ? "Версія " + AppVersion.Text + " — найновіша ✓" : null;
                             if (nav.VersionNote != null)
                             {
                                 var t = new System.Windows.Forms.Timer { Interval = 5000 };
