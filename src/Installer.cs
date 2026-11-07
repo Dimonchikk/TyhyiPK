@@ -95,7 +95,10 @@ namespace TyhyiPK
             string me = Application.ExecutablePath;
             string src = Path.GetDirectoryName(me);
             string exe = Path.Combine(Dir, "TyhyiPK.exe");
-            if (MessageBox.Show("Встановити «Тихий ПК»?\n\nПрограма встановиться в " + Dir + ", з'являться ярлики на Робочому столі й у меню «Пуск».",
+            bool update = File.Exists(exe);
+            if (MessageBox.Show(update
+                    ? "Оновити «Тихий ПК» до версії " + Version + "?\n\nПрограма закриється й запуститься знову. Налаштування й історія збережуться."
+                    : "Встановити «Тихий ПК» " + Version + "?\n\nПрограма встановиться в " + Dir + ", з'являться ярлики на Робочому столі й у меню «Пуск».",
                     "Встановлення «Тихого ПК»", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             if (!CloseOthers()) return;
             try { Directory.CreateDirectory(Dir); }
@@ -131,7 +134,7 @@ namespace TyhyiPK
             catch { }
 
             // Драйвер PawnIO не входить в інсталятор — його ставлять з офіційного сайту, за бажанням.
-            if (!Lhm.PawnIoInstalled() &&
+            if (!update && !Lhm.PawnIoInstalled() &&
                 MessageBox.Show("«Тихий ПК» встановлено.\n\nЩоб бачити температуру, споживання й оберти кулера процесора, потрібен безкоштовний драйвер датчиків PawnIO з цифровим підписом. " +
                     "Відкрити його офіційну сторінку pawnio.eu?\n\nЦе можна зробити й пізніше: «Датчики» → «як увімкнути?».",
                     "Встановлення «Тихого ПК»", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)

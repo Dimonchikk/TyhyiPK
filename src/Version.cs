@@ -15,7 +15,7 @@ namespace TyhyiPK
 {
     static class AppVersion
     {
-        public const string Text = "3.1";        // показується в програмі
-        public const string Full = "3.1.0.0";   // для «Властивості → Подробиці»
+        public const string Text = "3.2";        // показується в програмі
+        public const string Full = "3.2.0.0";   // для «Властивості → Подробиці»
     }
 }

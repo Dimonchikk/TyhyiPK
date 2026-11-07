@@ -14,6 +14,8 @@ namespace TyhyiPK
         static readonly string FilePath = Path.Combine(Power.StateDir, "energy.txt");
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         static readonly SortedDictionary<DateTime, double> days = new SortedDictionary<DateTime, double>();
+        // За кожен день: [0] секунд роботи (поки працює програма), [1] макс. °C процесора, [2] макс. °C відеокарти.
+        static readonly Dictionary<DateTime, double[]> stats = new Dictionary<DateTime, double[]>();
         static DateTime lastSample = DateTime.MinValue, lastSave = DateTime.UtcNow;
         static bool dirty;
 
@@ -35,12 +37,20 @@ namespace TyhyiPK
                 if (!File.Exists(FilePath)) return;
                 foreach (string line in File.ReadAllLines(FilePath))
                 {
+                    // Рядок: «дата=кВт·год» або «дата=кВт·год;секунд;макс.ЦП;макс.карти».
                     int i = line.IndexOf('=');
                     DateTime d;
                     double v;
-                    if (i > 0 && DateTime.TryParseExact(line.Substring(0, i), "yyyy-MM-dd", Inv, DateTimeStyles.None, out d) &&
-                        double.TryParse(line.Substring(i + 1), NumberStyles.Float, Inv, out v))
-                        days[d] = v;
+                    if (i <= 0 || !DateTime.TryParseExact(line.Substring(0, i), "yyyy-MM-dd", Inv, DateTimeStyles.None, out d)) continue;
+                    string[] parts = line.Substring(i + 1).Split(';');
+                    if (!double.TryParse(parts[0], NumberStyles.Float, Inv, out v)) continue;
+                    days[d] = v;
+                    if (parts.Length >= 4)
+                    {
+                        var st = new double[3];
+                        for (int k = 0; k < 3; k++) double.TryParse(parts[k + 1], NumberStyles.Float, Inv, out st[k]);
+                        stats[d] = st;
+                    }
                 }
             }
             catch { }
@@ -66,7 +76,14 @@ namespace TyhyiPK
             {
                 Directory.CreateDirectory(Power.StateDir);
                 var keep = days.Where(kv => kv.Key >= DateTime.Today.AddDays(-400));
-                File.WriteAllLines(FilePath, keep.Select(kv => kv.Key.ToString("yyyy-MM-dd", Inv) + "=" + kv.Value.ToString("0.#####", Inv)).ToArray());
+                File.WriteAllLines(FilePath, keep.Select(kv =>
+                {
+                    string line = kv.Key.ToString("yyyy-MM-dd", Inv) + "=" + kv.Value.ToString("0.#####", Inv);
+                    double[] st;
+                    if (stats.TryGetValue(kv.Key, out st))
+                        line += ";" + Math.Round(st[0]).ToString(Inv) + ";" + Math.Round(st[1]).ToString(Inv) + ";" + Math.Round(st[2]).ToString(Inv);
+                    return line;
+                }).ToArray());
                 dirty = false;
             }
             catch { }
@@ -94,16 +111,21 @@ namespace TyhyiPK
                 Measured = false;
             }
 
+            var today = s.Time.ToLocalTime().Date;
+            double[] st;
+            if (!stats.TryGetValue(today, out st)) { st = new double[3]; stats[today] = st; }
+            if (!s.CpuTempFromBoard && !double.IsNaN(s.CpuTemp) && s.CpuTemp > st[1]) { st[1] = s.CpuTemp; dirty = true; }
+            if (!double.IsNaN(s.GpuTemp) && s.GpuTemp > st[2]) { st[2] = s.GpuTemp; dirty = true; }
             if (lastSample != DateTime.MinValue)
             {
                 double sec = (s.Time - lastSample).TotalSeconds;
                 if (sec > 0 && sec <= 20)   // більші проміжки — сон/глибока пауза, не рахуємо
                 {
-                    var day = s.Time.ToLocalTime().Date;
                     double kwh = WallW * sec / 3600.0 / 1000.0;
                     double cur;
-                    days.TryGetValue(day, out cur);
-                    days[day] = cur + kwh;
+                    days.TryGetValue(today, out cur);
+                    days[today] = cur + kwh;
+                    st[0] += sec;
                     dirty = true;
                 }
             }
@@ -144,6 +166,55 @@ namespace TyhyiPK
             }
             return list;
         }
+
+        // ── Підсумок тижня (понеділок — неділя) ──
+        public class WeekStat
+        {
+            public DateTime Start;
+            public double Kwh, Hours, MaxCpu, MaxGpu;
+            public bool HasData { get { return Hours >= 0.25 || Kwh > 0.001; } }
+        }
+
+        public static DateTime WeekStart(DateTime d)
+        {
+            return d.Date.AddDays(-(((int)d.DayOfWeek + 6) % 7));
+        }
+
+        public static WeekStat Week(DateTime monday)
+        {
+            var w = new WeekStat { Start = monday.Date };
+            for (int i = 0; i < 7; i++)
+            {
+                var d = w.Start.AddDays(i);
+                w.Kwh += Day(d);
+                double[] st;
+                if (!stats.TryGetValue(d, out st)) continue;
+                w.Hours += st[0] / 3600.0;
+                w.MaxCpu = Math.Max(w.MaxCpu, st[1]);
+                w.MaxGpu = Math.Max(w.MaxGpu, st[2]);
+            }
+            return w;
+        }
+
+        public static string Hours(double h)
+        {
+            if (h < 1) return Math.Round(h * 60) + " хв";
+            return (h < 10 ? h.ToString("0.#") : Math.Round(h).ToString("0")) + " год";
+        }
+
+#if LINUXTEST
+        public static void DemoSeed()
+        {
+            var mon = WeekStart(DateTime.Today);
+            var rnd = new Random(7);
+            for (int i = -10; i <= 0; i++)
+            {
+                var d = DateTime.Today.AddDays(i);
+                days[d] = 0.6 + rnd.NextDouble() * 0.9;
+                stats[d] = new double[] { 3600 * (2 + rnd.NextDouble() * 5), 60 + rnd.Next(20), 50 + rnd.Next(25) };
+            }
+        }
+#endif
 
         public static string Money(double uah, bool exact)
         {

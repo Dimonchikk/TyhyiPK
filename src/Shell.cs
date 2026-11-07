@@ -205,9 +205,23 @@ namespace TyhyiPK
             string key = i + ":" + k;
             if (on ? subDots.Add(key) : subDots.Remove(key)) Invalidate();
         }
-        int selected, subSelected = -1, hover = -1, hoverSub = -1;
+        int selected, subSelected = -1, hover = -1, hoverSub = -1, hoverFoot;
         public event Action<int> ItemClicked;
         public event Action<int, int> SubClicked;
+        public event Action VersionClicked, UpdateClicked;
+
+        // Нижній рядок: «Версія 3.2» (клік — перевірити оновлення) і кнопка «Оновити до …», якщо вийшла нова версія.
+        string update, versionNote;
+        public string Update { get { return update; } set { update = value; Invalidate(); } }
+        public string VersionNote { get { return versionNote; } set { versionNote = value; Invalidate(); } }
+        public int FootTop { get { return Height - Ui.S(update != null ? 80 : 40); } }
+        Rectangle VersionRect { get { return new Rectangle(Ui.S(14), Height - Ui.S(38), Width - Ui.S(28), Ui.S(26)); } }
+        Rectangle UpdateRect { get { return new Rectangle(Ui.S(16), Height - Ui.S(76), Width - Ui.S(32), Ui.S(32)); } }
+        int FootHit(Point p)
+        {
+            if (update != null && UpdateRect.Contains(p)) return 2;
+            return VersionRect.Contains(p) ? 1 : 0;
+        }
 
         public Sidebar() { Cursor = Cursors.Default; }
 
@@ -257,7 +271,16 @@ namespace TyhyiPK
             using (var pen = new Pen(Ui.CardLine, Math.Max(1f, Ui.Scale))) g.DrawLine(pen, Width - 1, 0, Width - 1, Height);
             Ui.Text(g, "Тихий ПК", Ui.Brand, new Rectangle(Ui.S(24), Ui.S(26), Width - Ui.S(30), Ui.S(28)), Ui.Ink, Ui.Left);
             Ui.Text(g, "Менше шуму. Більше спокою.", Ui.Caps, new Rectangle(Ui.S(24), Ui.S(54), Width - Ui.S(30), Ui.S(18)), Ui.Ink2, Ui.Left);
-            Ui.Text(g, "Версія " + AppVersion.Text, Ui.Caps, new Rectangle(Ui.S(24), Height - Ui.S(32), Width - Ui.S(30), Ui.S(18)), Ui.Ink3, Ui.Left);
+            var vr = VersionRect;
+            if (hoverFoot == 1) Ui.FillRound(g, vr, Ui.S(7), Ui.Mix(Ui.Side, Ui.Ink, 0.06f));
+            Ui.Text(g, versionNote ?? "Версія " + AppVersion.Text, Ui.Caps, new Rectangle(vr.X + Ui.S(10), vr.Y, vr.Width - Ui.S(12), vr.Height),
+                hoverFoot == 1 ? Ui.Ink2 : Ui.Ink3, Ui.Left);
+            if (update != null)
+            {
+                var ur = UpdateRect;
+                Ui.FillRound(g, ur, ur.Height / 2f, hoverFoot == 2 ? Ui.Mix(Ui.Blue, Color.White, 0.12f) : Ui.Blue);
+                Ui.Text(g, "Оновити до " + update, Ui.BodySemi, ur, Color.White, Ui.Center);
+            }
             foreach (var row in Rows())
             {
                 int i = row.Item1, k = row.Item2;
@@ -300,17 +323,25 @@ namespace TyhyiPK
         protected override void OnMouseMove(MouseEventArgs e)
         {
             var h = Hit(e.Location);
-            int hi = h != null ? h.Item1 : -1, hs = h != null ? h.Item2 : -1;
-            if (hi != hover || hs != hoverSub) { hover = hi; hoverSub = hs; Cursor = h != null ? Cursors.Hand : Cursors.Default; Invalidate(); }
+            int hi = h != null ? h.Item1 : -1, hs = h != null ? h.Item2 : -1, hf = FootHit(e.Location);
+            if (hi != hover || hs != hoverSub || hf != hoverFoot)
+            {
+                hover = hi; hoverSub = hs; hoverFoot = hf;
+                Cursor = h != null || hf != 0 ? Cursors.Hand : Cursors.Default;
+                Invalidate();
+            }
             base.OnMouseMove(e);
         }
 
-        protected override void OnMouseLeave(EventArgs e) { hover = -1; hoverSub = -1; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnMouseLeave(EventArgs e) { hover = -1; hoverSub = -1; hoverFoot = 0; Invalidate(); base.OnMouseLeave(e); }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
             if (e.Button != MouseButtons.Left) return;
+            int f = FootHit(e.Location);
+            if (f == 1 && VersionClicked != null) { VersionClicked(); return; }
+            if (f == 2 && UpdateClicked != null) { UpdateClicked(); return; }
             var h = Hit(e.Location);
             if (h == null) return;
             if (h.Item2 < 0) { if (ItemClicked != null) ItemClicked(h.Item1); }

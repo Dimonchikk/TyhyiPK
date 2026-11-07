@@ -260,6 +260,16 @@ namespace TyhyiPK
             tgSleep = NewToggle(y + 14);
             y += 56;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
+            RowLabel("Перевіряти оновлення", Ui.R(40, y + 4, 420, 26));
+            Ui.MakeLabel(pageAuto, "Раз на добу програма питає GitHub, чи вийшла нова версія.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            tgUpdates = NewToggle(y + 14);
+            y += 56;
+            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
+            RowLabel("Підсумок тижня", Ui.R(40, y + 4, 420, 26));
+            Ui.MakeLabel(pageAuto, "У неділю ввечері: години роботи, найвищі температури й вартість електрики.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            tgWeekly = NewToggle(y + 14);
+            y += 56;
+            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
             RowLabel("Запускати разом з Windows", Ui.R(40, y + 1, 400, 55));
             tgAutorun = NewToggle(y + 14);
             y += 56;
@@ -325,6 +335,7 @@ namespace TyhyiPK
             tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) ShowWindow(); };
             tray.Visible = true;
             BuildIconPage();
+            SetupUpdates();
 
             // ── Початковий стан ──
             cpu.Current = Power.CurrentMode();

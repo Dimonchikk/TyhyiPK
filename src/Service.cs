@@ -227,7 +227,7 @@ namespace TyhyiPK
 
     static class NetCheck
     {
-        const string Agent = "TyhyiPK/2.1";
+        const string Agent = "TyhyiPK/" + AppVersion.Text;
 
         static NetCheck()
         {
