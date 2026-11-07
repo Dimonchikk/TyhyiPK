@@ -1,0 +1,4 @@
+lib/
+*.exe
+build_log.txt
+*.SED
