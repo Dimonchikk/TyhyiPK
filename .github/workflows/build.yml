@@ -1,13 +1,17 @@
 # Тихий ПК — автоматичне збирання на GitHub.
-# • Новий тег (наприклад v3.2) → GitHub збирає Tykhyi-PK-setup.exe і кладе його в ЧЕРНЕТКУ релізу.
-#   Перевір файл і натисни «Publish release» — тоді його отримає сайт.
-# • Вкладка Actions → «Збирання» → «Run workflow» — пробне збирання без релізу (файл у «Artifacts»).
+# Вкладка Actions → «Збирання» → «Run workflow»:
+# • поле «Версія» порожнє — пробне збирання, файл з'явиться внизу сторінки запуску в «Artifacts»;
+# • у полі «Версія» число (наприклад 3.2) — GitHub збере Tykhyi-PK-setup.exe і створить ЧЕРНЕТКУ релізу v3.2.
+#   Перевір файл і натисни «Publish release» — тоді його почне видавати сайт.
 name: Збирання
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версія для релізу (наприклад 3.2). Порожньо — лише пробне збирання.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -28,15 +32,20 @@ jobs:
           name: Tykhyi-PK-setup
           path: src/Tykhyi-PK-setup.exe
 
-      - name: Додати в чернетку релізу
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Створити чернетку релізу
+        if: inputs.version != ''
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          VER: ${{ inputs.version }}
         run: |
-          TAG="$GITHUB_REF_NAME"
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --draft --verify-tag --title "Тихий ПК ${TAG#v}" \
-              --notes "Тихий ПК ${TAG#v} для Windows 10 і 11. Завантаж Tykhyi-PK-setup.exe і запусти його."
+          VER="${VER#v}"
+          TAG="v$VER"
+          # Номер у програмі (src/Version.cs) має збігатися з номером релізу.
+          grep -q "Text = \"$VER\"" src/Version.cs || { echo "::error::У src/Version.cs інша версія — зміни Text на \"$VER\"."; exit 1; }
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" src/Tykhyi-PK-setup.exe --clobber
+          else
+            gh release create "$TAG" src/Tykhyi-PK-setup.exe --draft --target "$GITHUB_SHA" --title "Тихий ПК $VER" \
+              --notes "Тихий ПК $VER для Windows 10 і 11. Завантаж Tykhyi-PK-setup.exe і запусти його."
           fi
-          gh release upload "$TAG" src/Tykhyi-PK-setup.exe --clobber
