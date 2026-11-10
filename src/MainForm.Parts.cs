@@ -108,8 +108,9 @@ namespace TyhyiPK
             foreach (var group in views)
                 foreach (var v in group)
                     if (v != show) HostOf(v).Visible = false;
-            HostOf(show).Visible = true;
             curPage = show;
+            EnsureLaid(show);
+            HostOf(show).Visible = true;
             nav.Selected = i;
             bool hasSubs = views[i].Length > 1;
             nav.SubSelected = hasSubs ? k : -1;

@@ -7,10 +7,15 @@
 //   перемикачі й кнопки лишаються свого розміру біля свого краю;
 // • велика картка-висновок угорі теж на всю ширину.
 // Розгорнутість вікна запам'ятовується.
+// Snap Layouts Windows 11: вікно можна поставити в половину чи чверть екрана (наведи на «Розгорнути»).
+// Мишкою за край розмір не тягнеться — розмір змінюють лише розгортання й Snap. Якщо місця менше, ніж 600,
+// сторінки акуратно звужуються (широкі елементи вужчають, перемикачі лишаються біля правого краю),
+// а бокове меню прокручується коліщатком. Перекомпонування — лише для показаної сторінки, решта — коли відкриєш.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace TyhyiPK
@@ -50,9 +55,61 @@ namespace TyhyiPK
         Page curPage;
         FormWindowState lastState = FormWindowState.Normal;
 
+        [DllImport("user32.dll")]
+        static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
+
+        // Межі вікна не тягнуться мишкою: Windows бачить вікно «змінюваним» (для Snap), але край — це просто рамка.
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+            const int WM_NCHITTEST = 0x84, HTBORDER = 18;
+            if (m.Msg == WM_NCHITTEST && WindowState == FormWindowState.Normal)
+            {
+                int hit = m.Result.ToInt32();
+                if (hit >= 10 && hit <= 17) m.Result = (IntPtr)HTBORDER;   // HTLEFT … HTBOTTOMRIGHT
+            }
+        }
+
+        static void Freeze(Control c, bool on)
+        {
+            try
+            {
+                if (!c.IsHandleCreated) return;
+                SendMessage(c.Handle, 0x000B, on ? IntPtr.Zero : (IntPtr)1, IntPtr.Zero);   // WM_SETREDRAW
+                if (!on) c.Invalidate(true);
+            }
+            catch { }
+        }
+
+        int layoutAvail;
+        readonly Dictionary<Page, int> laidFor = new Dictionary<Page, int>();
+
+        // Перед показом сторінки — підлаштувати її під поточну ширину, якщо ще не підлаштована.
+        void EnsureLaid(Page p)
+        {
+            if (!layoutReady || p == null) return;
+            int w;
+            if (laidFor.TryGetValue(p, out w) && w == layoutAvail) return;
+            var host = HostOf(p);
+            if (host == null) return;
+            bool vis = host.Visible;
+            if (vis) Freeze(host, true);
+            try
+            {
+                Arrange(p, layoutAvail);
+                laidFor[p] = layoutAvail;
+                host.Fit();
+                if (p == pageEnergy)
+                {
+                    bool wide = bars != null && bars.Width > Ui.S(800);
+                    if (wide != energyWide) { energyWide = wide; RefreshEnergy(); }
+                }
+            }
+            finally { if (vis) Freeze(host, false); }
+        }
+
         void SetupLayout()
         {
-            MaximizeBox = true;
             restoreMax = Settings.GetBool("Maximized", false);
             if (restoreMax) WindowState = FormWindowState.Maximized;
             lastState = WindowState;
@@ -75,7 +132,7 @@ namespace TyhyiPK
         {
             if (!layoutReady) return;
             var cs = ClientSize;
-            if (cs.Width < Ui.S(SideW + 300) || cs.Height < Ui.S(HeaderH + 200)) return;
+            if (cs.Width < Ui.S(SideW + 200) || cs.Height < Ui.S(HeaderH + 150)) return;
             SuspendLayout();
             try
             {
@@ -83,18 +140,15 @@ namespace TyhyiPK
                 nav.Bounds = new Rectangle(0, 0, side, cs.Height);
                 ShowUpdateState();
                 int areaW = cs.Width - side;
+                layoutAvail = areaW;
                 foreach (var group in views)
                     foreach (var p in group)
                     {
                         var host = HostOf(p);
-                        if (host == null) continue;
-                        host.Bounds = new Rectangle(side, head, areaW, cs.Height - head);
-                        Arrange(p, areaW);
-                        host.Fit();
+                        if (host != null) host.Bounds = new Rectangle(side, head, areaW, cs.Height - head);
                     }
+                EnsureLaid(curPage);
                 PlaceHeader();
-                bool wide = bars != null && bars.Width > Ui.S(800);
-                if (wide != energyWide) { energyWide = wide; RefreshEnergy(); }
             }
             finally { ResumeLayout(true); }
         }
@@ -108,6 +162,8 @@ namespace TyhyiPK
             int left = Ui.S(SideW) + g.X, right = left + g.Y;
             lblTitle.Left = left + Ui.S(22);
             lblSub.Left = left + Ui.S(25);
+            lblTitle.Width = Math.Max(Ui.S(120), Math.Min(Ui.S(380), right - Ui.S(24) - themeSeg.Width - Ui.S(8) - lblTitle.Left));
+            lblSub.Width = Math.Max(Ui.S(120), Math.Min(Ui.S(360), right - Ui.S(24) - pill.Width - Ui.S(8) - lblSub.Left));
             themeSeg.Left = right - Ui.S(24) - themeSeg.Width;
             pill.Left = right - Ui.S(24) - pill.Width;
         }
@@ -176,10 +232,21 @@ namespace TyhyiPK
             return false;
         }
 
+        // Написи — під елементами керування: коли рядок вужчає, довгий напис не перекриває перемикач.
+        static void LabelsBack(Control parent)
+        {
+            foreach (Control c in parent.Controls.Cast<Control>().ToList())
+            {
+                if (c is Label) c.SendToBack();
+                else if (c is Page) LabelsBack(c);
+            }
+        }
+
         void Arrange(Page p, int availW)
         {
             Restore(p);
             TakeSnap(p);
+            LabelsBack(p);
             var hero = p.Controls.OfType<HeroCard>().FirstOrDefault();
             var items = ItemsOf(p, hero);
 
@@ -190,8 +257,10 @@ namespace TyhyiPK
 
             var blocks = BlocksOf(items);
             bool two = availW >= Ui.S(2 * ColW + 24) && blocks.Count >= 1;
-            int totalW = Ui.S(two ? 2 * ColW : ColW);
+            bool narrow = !two && availW < Ui.S(ColW);
+            int totalW = two ? Ui.S(2 * ColW) : narrow ? availW : Ui.S(ColW);
             int x0 = Math.Max(0, (availW - totalW) / 2);
+            TW = totalW;
             pageGeom[p] = new Point(x0, totalW);
 
             if (hero != null) hero.Bounds = new Rectangle(x0 + Ui.S(24), hero.Top, totalW - Ui.S(48), hero.Height);
@@ -208,6 +277,12 @@ namespace TyhyiPK
                     single.Height = Math.Max(Ui.S(20), bottom + (oldH - oldBottom));
                     single.Invalidate();
                 }
+                else if (narrow) StretchInside(single);
+                return;
+            }
+            if (narrow)
+            {
+                foreach (var b in blocks) Move(target, b, 0, 0, true);
                 return;
             }
             if (!two)
@@ -256,8 +331,10 @@ namespace TyhyiPK
         }
 
         // Розтягування на дві колонки: поля по 24 лишаються, усе між ними пропорційно ширшає.
+        // TW — ширина, до якої розтягуємо (дві колонки) або звужуємо (вузьке вікно) колонку шириною 600.
+        static int TW;
         static int SX(int x) { int m = Ui.S(24); return m + (int)Math.Round((x - m) * StretchK); }
-        static double StretchK { get { return (Ui.S(2 * ColW) - 2.0 * Ui.S(24)) / (Ui.S(ColW) - 2.0 * Ui.S(24)); } }
+        static double StretchK { get { return (TW - 2.0 * Ui.S(24)) / (Ui.S(ColW) - 2.0 * Ui.S(24)); } }
         static Rectangle Stretch(Rectangle r)
         {
             int l = SX(r.Left), rr = SX(r.Right);
@@ -269,8 +346,25 @@ namespace TyhyiPK
         static Rectangle StretchItem(Item it)
         {
             var r = it.R;
+            int shift = TW - Ui.S(ColW);
+            if (shift < 0 && it.C is Label && r.Width >= Ui.S(320))
+            {
+                var q0 = Stretch(r);
+                return q0.X < r.X ? new Rectangle(r.X, q0.Y, Math.Max(Ui.S(40), q0.Right - r.X), q0.Height) : q0;
+            }
             if (it.C == null || it.C is StatTile || r.Width >= Ui.S(320)) return Stretch(r);
-            int shift = Ui.S(2 * ColW) - Ui.S(ColW);
+            if (shift < 0)
+            {
+                // Вузьке вікно: перемикачі тримають розмір біля правого краю, кнопки під карткою — свої місця,
+                // решта (вибір режимів, поля, короткі написи) пропорційно звужується разом із рядком.
+                if (it.C is Toggle) return new Rectangle(r.X + shift, r.Y, r.Width, r.Height);
+                if (it.C is PillBtn || it.C is LinkBtn)
+                    return r.Right >= Ui.S(ColW - 60) ? new Rectangle(r.X + shift, r.Y, r.Width, r.Height) : r;
+                var q = Stretch(r);
+                // Написи не зсуваємо лівіше (щоб не налазили на заокруглений край картки).
+                if (it.C is Label && q.X < r.X) q = new Rectangle(r.X, q.Y, Math.Max(Ui.S(40), q.Right - r.X), q.Height);
+                return q;
+            }
             // Кнопки під карткою тримаються купкою зліва; праворуч їде лише та, що й була притиснута до правого краю.
             if (it.C is PillBtn || it.C is LinkBtn)
                 return r.Right >= Ui.S(ColW - 60) ? new Rectangle(r.X + shift, r.Y, r.Width, r.Height) : r;
@@ -294,7 +388,7 @@ namespace TyhyiPK
                 var sub = it.C as Page;
                 if (stretched && sub != null && it.R.X <= Ui.S(2) && it.R.Width >= Ui.S(ColW - 4))
                 {
-                    sub.Bounds = new Rectangle(it.R.X, r.Y, Ui.S(2 * ColW), r.Height);
+                    sub.Bounds = new Rectangle(it.R.X, r.Y, TW, r.Height);
                     StretchInside(sub);
                 }
                 else it.C.Bounds = r;
@@ -318,7 +412,7 @@ namespace TyhyiPK
                 if (stretch && it.C is Page && it.R.X <= Ui.S(2) && it.R.Width >= Ui.S(ColW - 4))
                 {
                     var sub = (Page)it.C;
-                    sub.Bounds = new Rectangle(it.R.X + dx, it.R.Y + dy, Ui.S(2 * ColW), it.R.Height);
+                    sub.Bounds = new Rectangle(it.R.X + dx, it.R.Y + dy, TW, it.R.Height);
                     StretchInside(sub);
                     continue;
                 }

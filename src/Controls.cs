@@ -152,7 +152,10 @@ namespace TyhyiPK
                 r.Inflate(-Ui.S(3), 0);
                 bool sel = i == selected;
                 Color c = Enabled ? (sel ? (Accent != null ? Accent(i) : Ui.Ink) : Ui.SegText) : Ui.Ink3;
-                Ui.Text(g, items[i], sel ? Ui.BodySemi : Ui.Body, r, c, Ui.Center);
+                // У вузькому вікні сегменти вужчі — тоді текст дрібнішим шрифтом, щоб не обрізався.
+                var f = sel ? Ui.BodySemi : Ui.Body;
+                if (TextRenderer.MeasureText(items[i], Ui.BodySemi, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width > r.Width - Ui.S(8)) f = Ui.Small;
+                Ui.Text(g, items[i], f, r, c, Ui.Center);
             }
         }
 

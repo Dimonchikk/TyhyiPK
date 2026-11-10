@@ -105,10 +105,12 @@ namespace TyhyiPK
                 AutoPageH = Math.Max(420, Math.Min(600, avail));
             }
             catch { }
+            // Змінюване вікно — щоб працювали «Розгорнути» й Snap Layouts; тягнути край мишкою не можна (див. WndProc).
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
             ClientSize = new Size(Ui.S(SideW + 600), Ui.S(HeaderH + AutoPageH));
+            MinimumSize = new Size(Ui.S(700), Ui.S(420));
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
             Font = Ui.Body;
             BackColor = Ui.Bg;
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }

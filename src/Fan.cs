@@ -97,7 +97,11 @@ namespace TyhyiPK
         Icon tempIcon;
         string tempKey;
 
-        static int Size { get { return Math.Max(16, SystemInformation.SmallIconSize.Width); } }
+        readonly int size;
+        // Без розміру — маленький значок біля годинника; з розміром — наприклад, великий для кнопки на панелі завдань.
+        public TrayIcons() : this(0) { }
+        public TrayIcons(int size) { this.size = size; }
+        int Size { get { return size > 0 ? size : Math.Max(16, SystemInformation.SmallIconSize.Width); } }
 
         Icon Make(Action<Graphics, RectangleF> draw)
         {

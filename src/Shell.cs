@@ -251,8 +251,39 @@ namespace TyhyiPK
 
         public Sidebar() { Cursor = Cursors.Default; }
 
-        public int Selected { get { return selected; } set { if (value != selected) subSelected = -1; selected = value; Invalidate(); } }
+        public int Selected { get { return selected; } set { if (value != selected) subSelected = -1; selected = value; EnsureSelectedVisible(); Invalidate(); } }
         public int SubSelected { get { return subSelected; } set { subSelected = value; Invalidate(); } }
+
+        // Прокрутка меню, коли воно не влазить (вікно в чверті екрана).
+        int scroll;
+        int FullBottom { get { int s0 = scroll; scroll = 0; int b = ContentBottom; scroll = s0; return b; } }
+        int MaxScroll { get { return Math.Max(0, FullBottom + Ui.S(12) - Height); } }
+        void SetScroll(int v)
+        {
+            v = Math.Max(0, Math.Min(MaxScroll, v));
+            if (v != scroll) { scroll = v; Invalidate(); }
+        }
+        void EnsureSelectedVisible()
+        {
+            if (MaxScroll == 0) { SetScroll(0); return; }
+            int s0 = scroll;
+            scroll = 0;
+            int top = int.MaxValue, bottom = 0;
+            foreach (var r in Rows()) if (r.Item1 == selected) { top = Math.Min(top, r.Item3.Top); bottom = Math.Max(bottom, r.Item3.Bottom); }
+            scroll = s0;
+            if (top == int.MaxValue) return;
+            if (bottom - scroll > Height - Ui.S(12)) SetScroll(bottom - Height + Ui.S(12));
+            else if (top - scroll < Ui.S(Top0 - 8)) SetScroll(top - Ui.S(Top0 - 8));
+            else SetScroll(scroll);
+        }
+        protected override void OnResize(EventArgs e) { base.OnResize(e); EnsureSelectedVisible(); Invalidate(); }
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            base.OnMouseWheel(e);
+            SetScroll(scroll - e.Delta * Ui.S(60) / 120);
+            var h = e as HandledMouseEventArgs;
+            if (h != null) h.Handled = true;
+        }
 
         public void SetDot(int i, bool on)
         {
@@ -272,14 +303,14 @@ namespace TyhyiPK
             int y = Top0;
             for (int i = 0; i < Items.Length; i++)
             {
-                list.Add(Tuple.Create(i, -1, new Rectangle(Ui.S(12), Ui.S(y), Width - Ui.S(24), Ui.S(ItemH))));
+                list.Add(Tuple.Create(i, -1, new Rectangle(Ui.S(12), Ui.S(y) - scroll, Width - Ui.S(24), Ui.S(ItemH))));
                 y += ItemH + 4;
                 if (i == selected)
                 {
                     var subs = SubsOf(i);
                     for (int k = 0; k < subs.Length; k++)
                     {
-                        list.Add(Tuple.Create(i, k, new Rectangle(Ui.S(40), Ui.S(y), Width - Ui.S(52), Ui.S(SubH))));
+                        list.Add(Tuple.Create(i, k, new Rectangle(Ui.S(40), Ui.S(y) - scroll, Width - Ui.S(52), Ui.S(SubH))));
                         y += SubH + 2;
                     }
                     if (subs.Length > 0) y += 6;
@@ -295,8 +326,8 @@ namespace TyhyiPK
             var g = Prep(e);
             g.Clear(Ui.Side);
             using (var pen = new Pen(Ui.CardLine, Math.Max(1f, Ui.Scale))) g.DrawLine(pen, Width - 1, 0, Width - 1, Height);
-            Ui.Text(g, "Тихий ПК", Ui.Brand, new Rectangle(Ui.S(24), Ui.S(26), Width - Ui.S(30), Ui.S(28)), Ui.Ink, Ui.Left);
-            Ui.Text(g, "Менше шуму. Більше спокою.", Ui.Caps, new Rectangle(Ui.S(24), Ui.S(54), Width - Ui.S(30), Ui.S(18)), Ui.Ink2, Ui.Left);
+            Ui.Text(g, "Тихий ПК", Ui.Brand, new Rectangle(Ui.S(24), Ui.S(26) - scroll, Width - Ui.S(30), Ui.S(28)), Ui.Ink, Ui.Left);
+            Ui.Text(g, "Менше шуму. Більше спокою.", Ui.Caps, new Rectangle(Ui.S(24), Ui.S(54) - scroll, Width - Ui.S(30), Ui.S(18)), Ui.Ink2, Ui.Left);
             if (ShowVersion)
             {
                 string vt = versionNote ?? "Версія " + AppVersion.Text + (update != null ? " · є нова " + update : "");

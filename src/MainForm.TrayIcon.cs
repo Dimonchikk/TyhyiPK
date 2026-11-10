@@ -1,4 +1,5 @@
-// Тихий ПК — розділ «Значок»: анімований вентилятор біля годинника, його колір, швидкість і режим «температура числом».
+// Тихий ПК — розділ «Значок»: анімований вентилятор біля годинника, його колір, швидкість і режим «температура числом»;
+// а також кнопка програми на панелі завдань: крутний вентилятор кольору температури й смужка навантаження.
 using System;
 using System.Drawing;
 using System.Linq;
@@ -15,6 +16,11 @@ namespace TyhyiPK
         Toggle tgTrayBlink;
         Label lblTrayState;
         readonly TrayIcons trayIcons = new TrayIcons();
+        TrayIcons taskIcons;
+        Icon appIcon;
+        Toggle tgTaskSpin, tgTaskBar;
+        int taskLoad;
+        bool TaskSpinOn { get { return tgTaskSpin != null && tgTaskSpin.Checked && Visible; } }
         System.Windows.Forms.Timer fanTimer;
         int fanFrame;
         double trayTemp = double.NaN;
@@ -91,6 +97,23 @@ namespace TyhyiPK
             Ui.MakeLabel(p, "«За температурою» — колір сам змінюється: синій, коли ПК холодний, зелений, жовтий і помаранчевий, коли гріється, і червоний, коли гарячий. " +
                 "Режим «Температуру» показує замість вентилятора число — температуру процесора.", Ui.R(28, y + 10, 544, 60), Ui.Small, Ui.CInk2, Ui.CBg);
 
+            // ── Кнопка на панелі завдань ──
+            y += 82;
+            p.SetCaption("taskbar", Ui.R(40, y, 520, 18), "Панель завдань|кнопка «Тихого ПК» внизу екрана, поки вікно відкрите");
+            y += 24;
+            int cardTop = y;
+            tgTaskSpin = TaskRow(p, ref y, "Крутити вентилятор на кнопці",
+                "Колір — від температури: синій, зелений, жовтий, червоний.", "TaskSpin");
+            p.Lines.Add(Ui.R(40, y, 536, 0));
+            tgTaskBar = TaskRow(p, ref y, "Смужка навантаження",
+                "Зелена — спокійно, жовта — помітне навантаження, червона — на межі.", "TaskBar");
+            p.Cards.Add(Ui.R(24, cardTop, 552, y - cardTop));
+            appIcon = Icon;
+            taskIcons = new TrayIcons(Math.Max(32, SystemInformation.IconSize.Width));
+            tgTaskSpin.Changed += (s, e) => { if (!tgTaskSpin.Checked) RestoreAppIcon(); ApplyTraySettings(); };
+            tgTaskBar.Changed += (s, e) => UpdateTaskbarBar();
+            VisibleChanged += (s, e) => { TaskbarBar.Reset(); ApplyTraySettings(); UpdateTaskbarBar(); };
+
             fanTimer = new System.Windows.Forms.Timer();
             fanTimer.Tick += (s, e) => FanTick();
             ApplyTraySettings();
@@ -109,23 +132,68 @@ namespace TyhyiPK
             return Math.Max(35, 230 - (int)(trayLoad * 1.9));
         }
 
+        Toggle TaskRow(Page p, ref int y, string title, string sub, string key)
+        {
+            Ui.MakeLabel(p, title, Ui.R(40, y + 4, 420, 26), Ui.Body, Ui.CInk, Ui.CCard).TextAlign = ContentAlignment.MiddleLeft;
+            Ui.MakeLabel(p, sub, Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            var t = new Toggle();
+            t.Bounds = Ui.R(514, y + 14, 46, 28);
+            t.Checked = Settings.GetBool(key, true);
+            t.Changed += (s, e) => Settings.SetBool(key, t.Checked);
+            p.Controls.Add(t);
+            y += 56;
+            return t;
+        }
+
+        // Колір вентилятора на кнопці: завжди за температурою, червоний при перегріві.
+        Color TaskColorNow() { return trayHotNow ? Color.FromArgb(255, 59, 48) : FanArt.TempColor(trayTemp); }
+
+        void RenderTaskIcon()
+        {
+            if (!TaskSpinOn || taskIcons == null) return;
+            try { Icon = taskIcons.Fan(TaskColorNow(), fanFrame); } catch { }
+        }
+
+        void RestoreAppIcon()
+        {
+            try { if (appIcon != null) Icon = appIcon; } catch { }
+        }
+
+        // Смужка на кнопці: навантаження — більше з процесора й відеокарти (у відсотках від її ліміту).
+        void UpdateTaskbarBar()
+        {
+            if (tgTaskBar == null || !IsHandleCreated) return;
+            int state = TaskbarBar.Off;
+            if (tgTaskBar.Checked && Visible)
+                state = taskLoad >= 85 ? TaskbarBar.Red : taskLoad >= 60 ? TaskbarBar.Yellow : TaskbarBar.Green;
+            TaskbarBar.Set(Handle, state, taskLoad);
+        }
+
         void ApplyTraySettings()
         {
             if (fanTimer == null || tray == null) return;
             bool animate = TrayShow == "fan" && TrayAnim != "off";
             bool blink = trayHotNow && tgTrayBlink.Checked;
+            bool spin = TaskSpinOn;
             if (animate) fanTimer.Interval = FanInterval();
+            else if (spin) fanTimer.Interval = Math.Max(35, 230 - (int)(trayLoad * 1.9));
             else if (blink) fanTimer.Interval = 500;
-            fanTimer.Enabled = animate || blink || (Visible && pageIcon.Visible);
+            fanTimer.Enabled = animate || spin || blink || (Visible && pageIcon.Visible);
+            if (!spin) RestoreAppIconIfSpun();
             if (!fanTimer.Enabled || !animate) RenderTray();
             UpdateTrayState();
             fanPreview.Invalidate();
         }
 
+        bool iconSpun;
+        void RestoreAppIconIfSpun() { if (iconSpun) { iconSpun = false; RestoreAppIcon(); } }
+
         void FanTick()
         {
             bool animate = TrayShow == "fan" && TrayAnim != "off";
-            if (animate) fanFrame++;
+            bool spin = TaskSpinOn;
+            if (animate || spin) fanFrame++;
+            if (spin) { RenderTaskIcon(); iconSpun = true; }
             if (trayHotNow && tgTrayBlink.Checked && (DateTime.UtcNow - blinkAt).TotalMilliseconds >= 500)
             {
                 blinkPhase = !blinkPhase;
@@ -173,10 +241,13 @@ namespace TyhyiPK
             double t = Math.Max(double.IsNaN(ct) ? 0 : ct, double.IsNaN(s.GpuTemp) ? 0 : s.GpuTemp);
             trayTemp = t > 0 ? t : double.NaN;
             if (s.CpuLoad >= 0) trayLoad = s.CpuLoad;
+            int gpuPct = !double.IsNaN(s.GpuDraw) && !double.IsNaN(s.GpuLimit) && s.GpuLimit > 0 ? (int)Math.Round(s.GpuDraw / s.GpuLimit * 100) : 0;
+            taskLoad = Math.Max(Math.Max(0, s.CpuLoad), Math.Min(100, gpuPct));
+            UpdateTaskbarBar();
             bool hot = rows.Any(r => r.Heat) || t >= limit;
             bool changed = hot != trayHotNow;
             trayHotNow = hot;
-            if (changed || TrayShow == "temp" || TrayColorKey == "temp" || TrayAnim == "load") ApplyTraySettings();
+            if (changed || TrayShow == "temp" || TrayColorKey == "temp" || TrayAnim == "load" || TaskSpinOn) ApplyTraySettings();
             else UpdateTrayState();
         }
     }
