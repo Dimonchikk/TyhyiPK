@@ -299,7 +299,7 @@ namespace TyhyiPK
         {
             var mon = WeekStart(DateTime.Today);
             var rnd = new Random(7);
-            for (int i = -10; i <= 0; i++)
+            for (int i = -34; i <= 0; i++)
             {
                 var d = DateTime.Today.AddDays(i);
                 days[d] = 0.6 + rnd.NextDouble() * 0.9;

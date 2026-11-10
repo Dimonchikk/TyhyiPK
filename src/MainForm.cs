@@ -392,6 +392,7 @@ namespace TyhyiPK
             UpdateTrayText();
             FitPages();
             ShowPage(0);
+            SetupLayout();
 
             procTimer = new System.Windows.Forms.Timer();
             procTimer.Interval = 2000;

@@ -109,6 +109,7 @@ namespace TyhyiPK
                 foreach (var v in group)
                     if (v != show) HostOf(v).Visible = false;
             HostOf(show).Visible = true;
+            curPage = show;
             nav.Selected = i;
             bool hasSubs = views[i].Length > 1;
             nav.SubSelected = hasSubs ? k : -1;
@@ -124,6 +125,7 @@ namespace TyhyiPK
             if (i == 5) OnSvcShown(k);
             if (show == pageModes) UpdateHome();
             if (fanTimer != null) ApplyTraySettings();
+            if (layoutReady) PlaceHeader();
         }
 
         static string ValidMode(string m, string fallback)
@@ -193,7 +195,7 @@ namespace TyhyiPK
         {
             allowShow = true;
             Show();
-            if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+            if (WindowState == FormWindowState.Minimized) WindowState = restoreMax ? FormWindowState.Maximized : FormWindowState.Normal;
             Activate();
             ShowSnapshotTiles(last);
             if (pageProcs.Visible) UpdateProcs();

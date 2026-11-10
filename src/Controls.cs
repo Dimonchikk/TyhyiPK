@@ -608,8 +608,16 @@ namespace TyhyiPK
 
         public Page() { OnBg = true; }
 
+        // Зсув підписів після перекомпонування на широкому екрані (X, Y — зсув, Width — розширення).
+        public readonly Dictionary<string, Rectangle> CapMove = new Dictionary<string, Rectangle>();
+
         public void SetCaption(string id, Rectangle r, string text)
         {
+            KeyValuePair<Rectangle, string> cur;
+            Rectangle m;
+            // Код передає координати зі звичайного макета — на широкому екрані їх треба зсунути так само, як і решту.
+            bool same = Captions.TryGetValue(id, out cur) && cur.Key == r;
+            if (!same && CapMove.TryGetValue(id, out m)) r = new Rectangle(r.X + m.X, r.Y + m.Y, r.Width + m.Width, r.Height);
             Captions[id] = new KeyValuePair<Rectangle, string>(r, text);
             Invalidate();
         }

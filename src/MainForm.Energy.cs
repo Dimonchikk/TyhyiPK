@@ -9,6 +9,7 @@ namespace TyhyiPK
     {
         Page pageEnergy;
         StatTile eNow, eToday, eMonth, eForecast, wHours, wCpu, wGpu, wCost;
+        bool energyWide;
         BarChart bars;
         NumBox nbTariff, nbRest;
         Segmented segEff, segRest;
@@ -144,7 +145,10 @@ namespace TyhyiPK
                 heroEnergy.Set("Сьогодні — " + Energy.Money(today * t, true) + ".", sub, "energy", Ui.Blue);
             }
             RefreshWeek(t);
-            bars.Days = Energy.LastDays(14);
+            // На розгорнутому вікні графік ширший — показуємо місяць.
+            int nDays = energyWide ? 30 : 14;
+            bars.Days = Energy.LastDays(nDays);
+            pageEnergy.SetCaption("days", pageEnergy.Captions["days"].Key, "Останні " + nDays + " днів");
             bars.Price = t;
             bars.Invalidate();
         }
