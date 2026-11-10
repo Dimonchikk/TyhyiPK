@@ -44,6 +44,10 @@ jobs:
           # Номер у програмі (src/Version.cs) має збігатися з номером релізу.
           grep -q "Text = \"$VER\"" src/Version.cs || { echo "::error::У src/Version.cs інша версія — зміни Text на \"$VER\"."; exit 1; }
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # Чернетку (ще не опубліковану) переносимо на свіжий код; опублікований реліз не чіпаємо.
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ]; then
+              gh release edit "$TAG" --target "$GITHUB_SHA"
+            fi
             gh release upload "$TAG" src/Tykhyi-PK-setup.exe --clobber
           else
             gh release create "$TAG" src/Tykhyi-PK-setup.exe --draft --target "$GITHUB_SHA" --title "Тихий ПК $VER" \

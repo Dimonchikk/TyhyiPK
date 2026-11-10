@@ -3,6 +3,8 @@
 // • вміст стоїть по центру й не розтягується безмежно;
 // • якщо місця вистачає на дві колонки — розділи сторінки (заголовок + картка) розкладаються у дві колонки,
 //   а графіки (температура, енергія) займають усю ширину;
+// • сторінка з одним розділом (списки, налаштування) розтягується на всю ширину: списки й картки ширшають,
+//   перемикачі й кнопки лишаються свого розміру біля свого краю;
 // • велика картка-висновок угорі теж на всю ширину.
 // Розгорнутість вікна запам'ятовується.
 using System;
@@ -187,7 +189,7 @@ namespace TyhyiPK
             if (single != null) { TakeSnap(single); items = ItemsOf(single, null); }
 
             var blocks = BlocksOf(items);
-            bool two = availW >= Ui.S(2 * ColW + 24) && blocks.Count >= 2;
+            bool two = availW >= Ui.S(2 * ColW + 24) && blocks.Count >= 1;
             int totalW = Ui.S(two ? 2 * ColW : ColW);
             int x0 = Math.Max(0, (availW - totalW) / 2);
             pageGeom[p] = new Point(x0, totalW);
@@ -204,6 +206,7 @@ namespace TyhyiPK
                 {
                     int bottom = Flow(single, blocks, 0);
                     single.Height = Math.Max(Ui.S(20), bottom + (oldH - oldBottom));
+                    single.Invalidate();
                 }
                 return;
             }
@@ -261,11 +264,26 @@ namespace TyhyiPK
             return new Rectangle(l, r.Y, Math.Max(0, rr - l), r.Height);
         }
 
+        // Розтягування окремого елемента: картки, лінії, підписи, списки, графіки, плитки й довгі написи — ширшають;
+        // дрібні елементи (перемикачі, кнопки, поля) зберігають розмір і лишаються біля свого краю.
+        static Rectangle StretchItem(Item it)
+        {
+            var r = it.R;
+            if (it.C == null || it.C is StatTile || r.Width >= Ui.S(320)) return Stretch(r);
+            int shift = Ui.S(2 * ColW) - Ui.S(ColW);
+            // Кнопки під карткою тримаються купкою зліва; праворуч їде лише та, що й була притиснута до правого краю.
+            if (it.C is PillBtn || it.C is LinkBtn)
+                return r.Right >= Ui.S(ColW - 60) ? new Rectangle(r.X + shift, r.Y, r.Width, r.Height) : r;
+            // Перемикачі, поля, значення праворуч у рядку — зберігають відстань до правого краю.
+            if (r.Left + r.Width / 2 >= Ui.S(ColW / 2)) return new Rectangle(r.X + shift, r.Y, r.Width, r.Height);
+            return r;
+        }
+
         // Вкладений розділ (окрема Page на всю ширину) — розтягнути разом із вмістом.
         void StretchInside(Page sub)
         {
             if (!snaps.ContainsKey(sub)) TakeSnap(sub);
-            foreach (var it in ItemsOf(sub, null)) Place(sub, it, Stretch(it.R), true);
+            foreach (var it in ItemsOf(sub, null)) Place(sub, it, StretchItem(it), true);
             sub.Invalidate();
         }
 
@@ -295,7 +313,7 @@ namespace TyhyiPK
         {
             foreach (var it in b.Items)
             {
-                var r = stretch ? Stretch(it.R) : it.R;
+                var r = stretch ? StretchItem(it) : it.R;
                 r.Offset(dx, dy);
                 if (stretch && it.C is Page && it.R.X <= Ui.S(2) && it.R.Width >= Ui.S(ColW - 4))
                 {
