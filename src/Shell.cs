@@ -213,9 +213,22 @@ namespace TyhyiPK
         // Низ меню: «Версія 3.3» і під нею синя кнопка «Шукати оновлення» (або «Оновити до …», якщо вийшла нова версія).
         string update, versionNote;
         bool checking, pressed;
-        public string Update { get { return update; } set { update = value; Invalidate(); } }
+        public string Update { get { return update; } set { if (value != update && value != null) fxStart = DateTime.UtcNow; update = value; EnsureFx(); Invalidate(); } }
+
+        // Коли вийшла нова версія, кнопка «оживає»: переливається синім і фіолетовим, по ній пробігає відблиск,
+        // раз на кілька секунд вона підстрибує, а напис чергується: «Оновити до …» / «Є нова версія!».
+        readonly Timer fx = new Timer { Interval = 33 };
+        DateTime fxStart = DateTime.UtcNow;
+        bool fxHooked;
+        bool FxOn { get { return update != null && !checking; } }
+        void EnsureFx()
+        {
+            if (!fxHooked) { fxHooked = true; fx.Tick += (s, e) => Invalidate(new Rectangle(0, Height - Ui.S(100), Width, Ui.S(100))); }
+            fx.Enabled = FxOn && Visible;
+        }
+        protected override void OnVisibleChanged(EventArgs e) { base.OnVisibleChanged(e); EnsureFx(); }
         public string VersionNote { get { return versionNote; } set { versionNote = value; Invalidate(); } }
-        public bool Checking { get { return checking; } set { checking = value; Invalidate(); } }
+        public bool Checking { get { return checking; } set { checking = value; EnsureFx(); Invalidate(); } }
         public int FootTop { get { return Height - Ui.S(84); } }
         Rectangle ButtonRect { get { return new Rectangle(Ui.S(14), Height - Ui.S(52), Width - Ui.S(28), Ui.S(36)); } }
         Rectangle VersionRect { get { return new Rectangle(Ui.S(26), Height - Ui.S(80), Width - Ui.S(38), Ui.S(20)); } }
@@ -339,10 +352,57 @@ namespace TyhyiPK
                 Color fill = checking ? Ui.Mix(Ui.Blue, Ui.Side, 0.35f)
                     : pressed && hoverFoot == 1 ? Ui.Mix(Ui.Blue, Color.Black, 0.12f)
                     : hoverFoot == 1 ? Ui.Mix(Ui.Blue, Color.White, 0.12f) : Ui.Blue;
+                bool live = FxOn;
+                double t = live ? (DateTime.UtcNow - fxStart).TotalSeconds : 0;
+                int hop = 0;
+                if (live)
+                {
+                    // Два м'які підскоки на початку кожних 4 секунд.
+                    double ph = t % 4.0;
+                    if (ph < 0.7) { double k = ph / 0.7; hop = (int)Math.Round(Ui.S(7) * Math.Abs(Math.Sin(k * Math.PI * 2)) * (1 - k)); }
+                    // Пульсуюче сяйво навколо.
+                    int a = (int)(45 + 35 * Math.Sin(t * 3));
+                    var glow = new RectangleF(br.X - Ui.S(3), br.Y - Ui.S(3) - hop, br.Width + Ui.S(6), br.Height + Ui.S(6));
+                    Ui.FillRound(g, glow, glow.Height / 2f, Color.FromArgb(Math.Max(0, Math.Min(255, a)), 120, 90, 255));
+                }
                 // Легка тінь під кнопкою.
                 Ui.FillRound(g, new RectangleF(br.X + Ui.S(2), br.Y + Ui.S(3), br.Width - Ui.S(4), br.Height), br.Height / 2f, Color.FromArgb(Ui.Dark ? 60 : 28, Ui.Blue));
-                Ui.FillRound(g, br, br.Height / 2f, fill);
-                string text = checking ? "Шукаю оновлення…" : update != null ? "Оновити до " + update : "Шукати оновлення";
+                br.Offset(0, -hop);
+                if (live)
+                {
+                    // Переливання: синьо-фіолетовий градієнт пливе вздовж кнопки.
+                    float w = br.Width;
+                    float shift = (float)((t * 0.35) % 2.0) * w;
+                    using (var lg = new LinearGradientBrush(new RectangleF(br.X - shift, br.Y, w, br.Height),
+                        Ui.Mix(Ui.Blue, Color.White, hoverFoot == 1 ? 0.12f : 0f), Color.FromArgb(175, 82, 222), 0f))
+                    using (var path = Ui.Round(br, br.Height / 2f))
+                    {
+                        lg.WrapMode = WrapMode.TileFlipX;
+                        g.FillPath(lg, path);
+                        // Відблиск, що пробігає зліва направо.
+                        double sp = t % 2.6;
+                        if (sp < 0.9)
+                        {
+                            float band = Ui.S(46);
+                            float bx = br.X - band + (float)(sp / 0.9) * (br.Width + band);
+                            var clip = g.Clip;
+                            g.SetClip(path);
+                            using (var sh = new LinearGradientBrush(new RectangleF(bx, br.Y, band, br.Height), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 0f))
+                            {
+                                var cb = new ColorBlend(3);
+                                cb.Colors = new[] { Color.FromArgb(0, 255, 255, 255), Color.FromArgb(120, 255, 255, 255), Color.FromArgb(0, 255, 255, 255) };
+                                cb.Positions = new[] { 0f, 0.5f, 1f };
+                                sh.InterpolationColors = cb;
+                                g.FillRectangle(sh, bx, br.Y, band, br.Height);
+                            }
+                            g.Clip = clip;
+                        }
+                    }
+                }
+                else Ui.FillRound(g, br, br.Height / 2f, fill);
+                string text = checking ? "Шукаю оновлення…"
+                    : update != null ? (live && t % 6.0 >= 3.5 ? "Є нова версія!" : "Оновити до " + update)
+                    : "Шукати оновлення";
                 var size = TextRenderer.MeasureText(g, text, Ui.BodySemi, Size.Empty, TextFormatFlags.NoPadding);
                 float isz = Ui.S(14), gap = Ui.S(7);
                 float total = isz + gap + size.Width;
