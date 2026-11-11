@@ -27,6 +27,7 @@ namespace TyhyiPK
             tgWeekly.Changed += (s, e) => Settings.SetBool("WeekSummary", tgWeekly.Checked);
             nav.VersionClicked += () => CheckUpdates(true);
             nav.UpdateClicked += OfferUpdate;
+            nav.TelegramClicked += () => OpenUrl(Updates.Telegram);
             tray.BalloonTipClicked += (s, e) =>
             {
                 var a = balloonAction;

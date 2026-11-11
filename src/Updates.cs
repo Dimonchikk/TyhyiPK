@@ -14,6 +14,7 @@ namespace TyhyiPK
         public const string Repo = "Dimonchikk/TyhyiPK";
         public const string Download = "https://github.com/" + Repo + "/releases/latest/download/Tykhyi-PK-setup.exe";
         public const string ReleasesPage = "https://github.com/" + Repo + "/releases/latest";
+        public const string Telegram = "https://t.me/tyhyi_pk";   // канал з оновленнями
         static readonly TimeSpan Every = TimeSpan.FromHours(6);   // сама перевіряє кожні ~6 годин (і за хвилину після запуску)
 
         public static bool Enabled

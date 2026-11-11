@@ -208,7 +208,7 @@ namespace TyhyiPK
         int selected, subSelected = -1, hover = -1, hoverSub = -1, hoverFoot;
         public event Action<int> ItemClicked;
         public event Action<int, int> SubClicked;
-        public event Action VersionClicked, UpdateClicked;
+        public event Action VersionClicked, UpdateClicked, TelegramClicked;
 
         // Низ меню: «Версія 3.3» і під нею синя кнопка «Шукати оновлення» (або «Оновити до …», якщо вийшла нова версія).
         string update, versionNote;
@@ -235,9 +235,24 @@ namespace TyhyiPK
         // Якщо підрозділів багато й вони дістають до низу, ховаємо спершу підпис версії, потім кнопку.
         bool ShowVersion { get { return ContentBottom <= VersionRect.Y - Ui.S(4); } }
         bool ShowButton { get { return ContentBottom <= ButtonRect.Y - Ui.S(4); } }
+        // Кружечок Telegram праворуч від версії — канал з оновленнями.
+        Rectangle TgRect { get { return new Rectangle(Width - Ui.S(16) - Ui.S(22), VersionRect.Y - Ui.S(1), Ui.S(22), Ui.S(22)); } }
+
         int FootHit(Point p)
         {
+            if (ShowVersion && TgRect.Contains(p)) return 3;
             return ShowButton && !checking && ButtonRect.Contains(p) ? 1 : 0;
+        }
+
+        static void TelegramIcon(Graphics g, RectangleF r, bool hover)
+        {
+            var blue = Color.FromArgb(42, 171, 238);
+            using (var b = new SolidBrush(hover ? Ui.Mix(blue, Color.Black, 0.12f) : blue)) g.FillEllipse(b, r);
+            // Паперовий літачок.
+            float k = r.Width / 24f;
+            Func<float, float, PointF> P = (x, y) => new PointF(r.X + x * k, r.Y + y * k);
+            var plane = new[] { P(5.2f, 11.6f), P(17.8f, 6.6f), P(15.9f, 17.4f), P(11.6f, 14.6f), P(10.2f, 16.9f), P(10.3f, 13.7f), P(15.2f, 9.2f), P(9.0f, 13.0f) };
+            using (var w = new SolidBrush(Color.White)) g.FillPolygon(w, plane);
         }
 
         // Кругова стрілка «оновити»: дуга з проміжком угорі праворуч і трикутним наконечником.
@@ -344,7 +359,10 @@ namespace TyhyiPK
             if (ShowVersion)
             {
                 string vt = versionNote ?? "Версія " + AppVersion.Text + (update != null ? " · є нова " + update : "");
-                Ui.Text(g, vt, Ui.Caps, VersionRect, update != null && versionNote == null ? Ui.Blue : Ui.Ink3, Ui.Left);
+                var vr = VersionRect;
+                vr.Width -= Ui.S(28);
+                Ui.Text(g, vt, Ui.Caps, vr, update != null && versionNote == null ? Ui.Blue : Ui.Ink3, Ui.Left);
+                TelegramIcon(g, TgRect, hoverFoot == 3);
             }
             if (ShowButton)
             {
@@ -490,6 +508,7 @@ namespace TyhyiPK
             bool wasPressed = pressed;
             pressed = false;
             Invalidate();
+            if (FootHit(e.Location) == 3) { if (TelegramClicked != null) TelegramClicked(); return; }
             if (FootHit(e.Location) == 1 && wasPressed)
             {
                 if (update != null) { if (UpdateClicked != null) UpdateClicked(); }
