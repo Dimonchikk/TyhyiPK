@@ -464,8 +464,10 @@ namespace TyhyiPK
                     bool sel = k == subSelected;
                     if (sel) Ui.FillRound(g, r, Ui.S(8), Ui.Mix(Ui.Side, Ui.Blue, Ui.Dark ? 0.28f : 0.16f));
                     else if (i == hover && k == hoverSub) Ui.FillRound(g, r, Ui.S(8), Ui.Mix(Ui.Side, Ui.Ink, 0.07f));
-                    Ui.Text(g, SubsOf(i)[k], sel ? Ui.BodySemi : Ui.Body, new Rectangle(r.X + Ui.S(12), r.Y, r.Width - Ui.S(30), r.Height), sel ? Ui.Blue : Ui.Ink2, Ui.Left);
-                    if (subDots.Contains(i + ":" + k))
+                    // Місце під крапку праворуч лишаємо лише тоді, коли вона є — інакше довгі назви («Пил і охолодження») обрізались.
+                    bool dot = subDots.Contains(i + ":" + k);
+                    Ui.Text(g, SubsOf(i)[k], sel ? Ui.BodySemi : Ui.Body, new Rectangle(r.X + Ui.S(10), r.Y, r.Width - Ui.S(dot ? 28 : 12), r.Height), sel ? Ui.Blue : Ui.Ink2, Ui.Left);
+                    if (dot)
                     {
                         float d = Ui.S(6);
                         using (var b = new SolidBrush(Ui.Orange)) g.FillEllipse(b, r.Right - Ui.S(14), r.Y + (r.Height - d) / 2f, d, d);

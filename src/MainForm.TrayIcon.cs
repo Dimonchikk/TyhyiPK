@@ -37,7 +37,8 @@ namespace TyhyiPK
 
         Label IconRow(string text, int y)
         {
-            var l = Ui.MakeLabel(pageIcon, text, Ui.R(40, y, 260, 56), Ui.Body, Ui.CInk, Ui.CCard);
+            // На 1 нижче за лінію-роздільник — щоб напис не перекривав її (інакше лінія видна лише праворуч).
+            var l = Ui.MakeLabel(pageIcon, text, Ui.R(40, y + 1, 260, 55), Ui.Body, Ui.CInk, Ui.CCard);
             l.TextAlign = ContentAlignment.MiddleLeft;
             return l;
         }

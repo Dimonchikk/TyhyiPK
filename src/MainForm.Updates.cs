@@ -35,12 +35,14 @@ namespace TyhyiPK
                 if (a != null && (DateTime.UtcNow - balloonAt).TotalSeconds < 60) a();
             };
             ShowUpdateState();
-            // Перша перевірка — за хвилину після запуску, далі раз на пів години (сама перевірка — не частіше, ніж раз на добу).
-            updTimer = new System.Windows.Forms.Timer { Interval = 60 * 1000 };
+            // Перша перевірка — одразу після запуску (за кілька секунд), далі щогодини.
+            updTimer = new System.Windows.Forms.Timer { Interval = 5 * 1000 };
+            bool first = true;
             updTimer.Tick += (s, e) =>
             {
-                updTimer.Interval = 30 * 60 * 1000;
-                if (Updates.Enabled && Updates.Due) CheckUpdates(false);
+                updTimer.Interval = 10 * 60 * 1000;
+                if (Updates.Enabled && (first || Updates.Due)) CheckUpdates(false);
+                first = false;
                 CheckWeekly();
             };
             updTimer.Start();

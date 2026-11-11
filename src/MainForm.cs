@@ -263,7 +263,7 @@ namespace TyhyiPK
             y += 56;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
             RowLabel("Перевіряти оновлення", Ui.R(40, y + 4, 420, 26));
-            Ui.MakeLabel(pageAuto, "Програма сама кожні кілька годин питає GitHub, чи вийшла нова версія.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            Ui.MakeLabel(pageAuto, "Програма сама питає GitHub під час запуску й щогодини, чи вийшла нова версія.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
             tgUpdates = NewToggle(y + 14);
             y += 56;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));

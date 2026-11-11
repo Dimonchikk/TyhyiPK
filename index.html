@@ -226,7 +226,7 @@ footer a{color:var(--ink2)}
 
       <div class="shot">
         <div class="bar"><span>Тихий ПК</span><span class="ctl"><span>—</span><span>☐</span><span>✕</span></span></div>
-        <img id="heroShot" src="screenshots/home.png" width="800" height="692" alt="Головне вікно програми Тихий ПК: огляд, режими процесора й відеокарти, стан ПК">
+        <img id="heroShot" class="themed" data-shot="home" src="screenshots/home.png" width="800" height="692" alt="Головне вікно програми Тихий ПК: огляд, режими процесора й відеокарти, стан ПК">
       </div>
     </div>
 
@@ -242,7 +242,7 @@ footer a{color:var(--ink2)}
           <p>Тихі режими обмежують турбо-частоти й ліміт потужності відеокарти — кулери крутяться повільніше, а температура падає. Коли треба швидкість — один клік, і повна сила повертається.</p>
           <div class="modes"><span>Дуже тихий</span><span>Тихий</span><span class="on">Звичайний</span><span>Прискорений</span><span>Супер</span></div>
         </div>
-        <div class="pic"><img src="screenshots/sens.png" alt="Сторінка Показники: температури, навантаження, споживання та графік за 10 хвилин"></div>
+        <div class="pic"><img class="themed" data-shot="sens" src="screenshots/sens.png" alt="Сторінка Показники: температури, навантаження, споживання та графік за 10 хвилин"></div>
       </div>
       <div class="stats">
         <div class="stat"><b>5</b><span>режимів для процесора й відеокарти</span></div>
@@ -390,8 +390,11 @@ footer a{color:var(--ink2)}
     var dark = mode === "dark";
     root.setAttribute("data-theme", dark ? "dark" : "light");
     document.querySelectorAll(".theme button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.t === mode); });
-    var h = document.getElementById("heroShot");
-    if (h) h.src = dark ? "screenshots/homed.png" : "screenshots/home.png";
+    // Кожен знімок є у двох варіантах: name.png (світлий) і name-dark.png (темний) — показуємо під тему сайту.
+    document.querySelectorAll("img.themed").forEach(function (im) {
+      var src = "screenshots/" + im.getAttribute("data-shot") + (dark ? "-dark" : "") + ".png";
+      if (im.getAttribute("src") !== src) im.src = src;
+    });
     if (window.__gal) window.__gal();
   }
   document.querySelectorAll(".theme button").forEach(function (b) {
@@ -405,20 +408,19 @@ footer a{color:var(--ink2)}
 
   // ----- галерея -----
   var shots = [
-    { l: "home",  d: "homed", c: "Огляд — стан ПК з першого погляду й режими процесора та відеокарти." },
-    { l: "sens",  d: "sens",  c: "Показники — температури, навантаження, споживання і графік за 10 хвилин." },
-    { l: "rules", d: "rules", c: "Автоматика — правила для ігор, ночі, батареї й перегріву." },
-    { l: "clean", d: "clean", c: "Очищення — звільняє місце, не чіпаючи особисті файли й паролі." },
-    { l: "energy", d: "energy", c: "Енергія — споживання з розетки, гривні, підсумок тижня й графік за два тижні." },
-    { l: "icon",  d: "icon",  c: "Значок — живий вентилятор біля годинника й на кнопці панелі завдань." },
-    { l: "wide",  d: "wide",  c: "На весь екран — дві колонки й графік за місяць на всю ширину." }
+    { n: "home",   c: "Огляд — стан ПК з першого погляду й режими процесора та відеокарти." },
+    { n: "sens",   c: "Показники — температури, навантаження, споживання і графік за 10 хвилин." },
+    { n: "rules",  c: "Автоматика — правила для ігор, ночі, батареї й перегріву." },
+    { n: "clean",  c: "Очищення — звільняє місце, не чіпаючи особисті файли й паролі." },
+    { n: "energy", c: "Енергія — споживання з розетки, гривні, підсумок тижня й графік за два тижні." },
+    { n: "icon",   c: "Значок — живий вентилятор біля годинника й на кнопці панелі завдань." },
+    { n: "wide",   c: "На весь екран — дві колонки й графік за місяць на всю ширину." }
   ];
   var cur = 0, img = document.getElementById("galImg"), cap = document.getElementById("galCap");
   function show(i) {
     cur = i;
     var s = shots[i], dark = root.getAttribute("data-theme") === "dark";
-    // Знімок «Значок» зроблено в темній темі — він гарно виглядає в обох.
-    var src = "screenshots/" + (dark ? s.d : s.l) + ".png";
+    var src = "screenshots/" + s.n + (dark ? "-dark" : "") + ".png";
     if (img.getAttribute("src") !== src) {
       img.style.opacity = 0;
       setTimeout(function () { img.src = src; img.onload = function () { img.style.opacity = 1; }; }, 150);

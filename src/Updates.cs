@@ -1,4 +1,4 @@
-// Тихий ПК — перевірка оновлень: сама питає GitHub (кожні ~6 годин), який номер останнього релізу.
+// Тихий ПК — перевірка оновлень: сама питає GitHub (одразу після запуску й щогодини), який номер останнього релізу.
 // Програма нічого сама не завантажує й не запускає: кнопка «Оновити» відкриває завантаження інсталятора в браузері,
 // а інсталятор сам закриває стару версію й ставить нову поверх (налаштування зберігаються).
 using System;
@@ -15,7 +15,7 @@ namespace TyhyiPK
         public const string Download = "https://github.com/" + Repo + "/releases/latest/download/Tykhyi-PK-setup.exe";
         public const string ReleasesPage = "https://github.com/" + Repo + "/releases/latest";
         public const string Telegram = "https://t.me/tyhyi_pk";   // канал з оновленнями
-        static readonly TimeSpan Every = TimeSpan.FromHours(6);   // сама перевіряє кожні ~6 годин (і за хвилину після запуску)
+        static readonly TimeSpan Every = TimeSpan.FromMinutes(55);   // сама перевіряє щогодини (і одразу після запуску)
 
         public static bool Enabled
         {
