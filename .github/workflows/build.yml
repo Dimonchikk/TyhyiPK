@@ -1,8 +1,9 @@
 # Тихий ПК — автоматичне збирання на GitHub.
 # Вкладка Actions → «Збирання» → «Run workflow»:
 # • поле «Версія» порожнє — пробне збирання, файл з'явиться внизу сторінки запуску в «Artifacts»;
-# • у полі «Версія» число (наприклад 3.2) — GitHub збере Tykhyi-PK-setup.exe і створить ЧЕРНЕТКУ релізу v3.2.
-#   Перевір файл і натисни «Publish release» — тоді його почне видавати сайт.
+# • у полі «Версія» число (наприклад 3.2) — GitHub збере Tykhyi-PK-setup.exe і створить ЧЕРНЕТКУ релізу v3.2
+#   з описом із CHANGES.md (розділ «## 3.2»). Перевір файл і натисни «Publish release» — тоді його почне
+#   видавати сайт, програми самі запропонують оновитися, а в Telegram-канал піде допис (telegram.yml).
 name: Збирання
 
 on:
@@ -43,13 +44,16 @@ jobs:
           TAG="v$VER"
           # Номер у програмі (src/Version.cs) має збігатися з номером релізу.
           grep -q "Text = \"$VER\"" src/Version.cs || { echo "::error::У src/Version.cs інша версія — зміни Text на \"$VER\"."; exit 1; }
+          # Опис релізу — розділ «## $VER» з CHANGES.md (він же піде в Telegram-канал).
+          NOTES=$(awk -v v="## $VER" '{sub(/\r$/,"")} $0==v{f=1;next} /^## /{if(f)exit} f' CHANGES.md | sed '/./,$!d')
+          [ -z "$NOTES" ] && NOTES="Тихий ПК $VER для Windows 10 і 11."
+          printf '%s\n\nЗавантаж Tykhyi-PK-setup.exe нижче й запусти його — він сам оновить програму, налаштування збережуться.\n' "$NOTES" > notes.md
           if gh release view "$TAG" >/dev/null 2>&1; then
-            # Чернетку (ще не опубліковану) переносимо на свіжий код; опублікований реліз не чіпаємо.
+            # Чернетку (ще не опубліковану) переносимо на свіжий код і оновлюємо опис; опублікований реліз не чіпаємо.
             if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ]; then
-              gh release edit "$TAG" --target "$GITHUB_SHA"
+              gh release edit "$TAG" --target "$GITHUB_SHA" --notes-file notes.md
             fi
             gh release upload "$TAG" src/Tykhyi-PK-setup.exe --clobber
           else
-            gh release create "$TAG" src/Tykhyi-PK-setup.exe --draft --target "$GITHUB_SHA" --title "Тихий ПК $VER" \
-              --notes "Тихий ПК $VER для Windows 10 і 11. Завантаж Tykhyi-PK-setup.exe і запусти його."
+            gh release create "$TAG" src/Tykhyi-PK-setup.exe --draft --target "$GITHUB_SHA" --title "Тихий ПК $VER" --notes-file notes.md
           fi

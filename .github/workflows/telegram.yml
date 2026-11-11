@@ -1,0 +1,28 @@
+# Тихий ПК — допис у Telegram-канал, коли реліз опубліковано («Publish release»).
+# Потрібні два секрети репозиторію (Settings → Secrets and variables → Actions):
+#   TELEGRAM_BOT_TOKEN — токен бота від @BotFather (бот — адміністратор каналу з правом публікувати);
+#   TELEGRAM_CHAT_ID   — @назва_каналу (для публічного) або числовий id (для приватного).
+# Надіслати допис ще раз: Actions → «Telegram» → «Run workflow» → тег (наприклад v3.9).
+name: Telegram
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег релізу, наприклад v3.9'
+        required: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Надіслати допис
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: python3 .github/telegram_post.py
