@@ -1,0 +1,32 @@
+# Тихий ПК — надіслати відео в Telegram-канал (Actions → «Telegram: відео» → Run workflow).
+name: 'Telegram: відео'
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Відео в репозиторії'
+        default: 'media/tyhyi-pk-promo.mp4'
+      caption:
+        description: 'Підпис'
+        default: ''
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Надіслати відео
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FILE: ${{ inputs.file }}
+          CAPTION: ${{ inputs.caption }}
+        run: |
+          if [ -z "$CAPTION" ]; then
+            CAPTION=$'🌀 <b>Тихий ПК — за дві хвилини</b>\n\nУсі вкладки програми: датчики, автоматика, енергія, сервіс і живий значок.\n\nЗавантажити безкоштовно: https://dimonchikk.github.io/TyhyiPK/'
+          fi
+          curl -sS --fail-with-body "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo" \
+            -F chat_id="$TELEGRAM_CHAT_ID" -F video=@"$FILE" -F supports_streaming=true \
+            -F width=1920 -F height=1080 -F duration=130 -F thumbnail=@media/promo-poster.jpg \
+            -F parse_mode=HTML -F caption="$CAPTION"

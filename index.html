@@ -121,6 +121,10 @@ h2{font-size:clamp(32px,4.4vw,48px);line-height:1.08;letter-spacing:-.02em;font-
 .gallery .shot{margin-top:0}
 .gallery img{transition:opacity .25s}
 
+/* відео */
+.vid{max-width:960px;margin:0 auto;border-radius:18px;overflow:hidden;background:#000;box-shadow:0 30px 80px rgba(0,0,0,.25),0 0 0 1px var(--line)}
+.vid video{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#000}
+
 /* кроки */
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:s}
 .step{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px 26px 26px;box-shadow:var(--shadow)}
@@ -196,6 +200,7 @@ footer a{color:var(--ink2)}
     <a class="brand" href="#top"><svg viewBox="0 0 100 100"><use href="#fan"/></svg>Тихий ПК</a>
     <nav class="links">
       <a href="#features">Можливості</a>
+      <a href="#video">Відео</a>
       <a href="#gallery">Знімки</a>
       <a href="#install">Встановлення</a>
       <a href="#faq">Питання</a>
@@ -278,6 +283,18 @@ footer a{color:var(--ink2)}
     </section>
 
     <!-- ===== знімки ===== -->
+    <section id="video" class="reveal">
+      <div class="head">
+        <h2>Дві хвилини — і все зрозуміло.</h2>
+        <p>Коротке відео про кожну вкладку «Тихого ПК».</p>
+      </div>
+      <div class="vid">
+        <video controls preload="none" playsinline poster="media/promo-poster.jpg">
+          <source src="media/tyhyi-pk-promo.mp4" type="video/mp4">
+        </video>
+      </div>
+    </section>
+
     <section id="gallery" class="gallery reveal">
       <div class="head">
         <h2>Подивись зблизька.</h2>
