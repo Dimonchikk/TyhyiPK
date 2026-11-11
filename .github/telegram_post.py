@@ -12,6 +12,21 @@ if not token or not chat:
 rel = json.loads(subprocess.check_output(["gh", "api", f"repos/{repo}/releases/tags/{tag}"]))
 version = tag.lstrip("vV")
 body = (rel.get("body") or "").replace("\r", "")
+# Якщо в CHANGES.md є розділ «## версія» — беремо список змін звідти (він повніший за опис старих релізів).
+try:
+    section, inside = [], False
+    for l in open("CHANGES.md", encoding="utf-8").read().replace("\r", "").split("\n"):
+        if l.startswith("## "):
+            if inside:
+                break
+            inside = l[3:].strip() == version
+            continue
+        if inside:
+            section.append(l)
+    if any(x.strip() for x in section):
+        body = "\n".join(section)
+except OSError:
+    pass
 # Беремо лише список змін (без рядка «Завантаж … нижче», бо в Telegram є кнопка).
 lines = [l for l in body.split("\n") if l.strip() and not l.startswith("Завантаж ")]
 
