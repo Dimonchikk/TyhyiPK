@@ -151,12 +151,24 @@ namespace TyhyiPK
         void RenderTaskIcon()
         {
             if (!TaskSpinOn || taskIcons == null) return;
-            try { Icon = taskIcons.Fan(TaskColorNow(), fanFrame); } catch { }
+            try
+            {
+                var ic = taskIcons.Fan(TaskColorNow(), fanFrame);
+                Icon = ic;
+                if (IsHandleCreated) TaskbarIcon.SetClassIcon(Handle, ic);
+            }
+            catch { }
         }
 
         void RestoreAppIcon()
         {
-            try { if (appIcon != null) Icon = appIcon; } catch { }
+            try
+            {
+                if (appIcon == null) return;
+                Icon = appIcon;
+                if (IsHandleCreated) TaskbarIcon.SetClassIcon(Handle, appIcon);
+            }
+            catch { }
         }
 
         // Смужка на кнопці: навантаження — більше з процесора й відеокарти (у відсотках від її ліміту).
