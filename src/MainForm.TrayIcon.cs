@@ -1,5 +1,5 @@
 // Тихий ПК — розділ «Значок»: анімований вентилятор біля годинника, його колір, швидкість і режим «температура числом»;
-// а також кнопка програми на панелі завдань: крутний вентилятор кольору температури й смужка навантаження.
+// а також кнопка програми на панелі завдань: крутний вентилятор у кутку кнопки (колір — від температури) і смужка навантаження.
 using System;
 using System.Drawing;
 using System.Linq;
@@ -20,6 +20,7 @@ namespace TyhyiPK
         Icon appIcon;
         Toggle tgTaskSpin, tgTaskBar;
         int taskLoad;
+        DateTime overlayAt;
         bool TaskSpinOn { get { return tgTaskSpin != null && tgTaskSpin.Checked && Visible; } }
         System.Windows.Forms.Timer fanTimer;
         int fanFrame;
@@ -102,14 +103,14 @@ namespace TyhyiPK
             p.SetCaption("taskbar", Ui.R(40, y, 520, 18), "Панель завдань|кнопка «Тихого ПК» внизу екрана, поки вікно відкрите");
             y += 24;
             int cardTop = y;
-            tgTaskSpin = TaskRow(p, ref y, "Крутити вентилятор на кнопці",
-                "Колір — від температури: синій, зелений, жовтий, червоний.", "TaskSpin");
+            tgTaskSpin = TaskRow(p, ref y, "Вентилятор у кутку кнопки",
+                "Крутиться тим швидше, чим більше навантаження; колір — від температури.", "TaskSpin");
             p.Lines.Add(Ui.R(40, y, 536, 0));
             tgTaskBar = TaskRow(p, ref y, "Смужка навантаження",
                 "Зелена — спокійно, жовта — помітне навантаження, червона — на межі.", "TaskBar");
             p.Cards.Add(Ui.R(24, cardTop, 552, y - cardTop));
             appIcon = Icon;
-            taskIcons = new TrayIcons(Math.Max(32, SystemInformation.IconSize.Width));
+            taskIcons = new TrayIcons();
             tgTaskSpin.Changed += (s, e) => { if (!tgTaskSpin.Checked) RestoreAppIcon(); ApplyTraySettings(); };
             tgTaskBar.Changed += (s, e) => UpdateTaskbarBar();
             VisibleChanged += (s, e) => { TaskbarBar.Reset(); ApplyTraySettings(); UpdateTaskbarBar(); };
@@ -151,23 +152,16 @@ namespace TyhyiPK
         void RenderTaskIcon()
         {
             if (!TaskSpinOn || taskIcons == null) return;
-            try
-            {
-                var ic = taskIcons.Fan(TaskColorNow(), fanFrame);
-                Icon = ic;
-                if (IsHandleCreated) TaskbarIcon.SetClassIcon(Handle, ic);
-            }
+            // Не частіше ~12 кадрів на секунду — панелі завдань цього досить, і вона не навантажується.
+            if ((DateTime.UtcNow - overlayAt).TotalMilliseconds < 80) return;
+            overlayAt = DateTime.UtcNow;
+            try { if (IsHandleCreated) TaskbarBar.Overlay(Handle, taskIcons.Fan(TaskColorNow(), fanFrame).Handle); }
             catch { }
         }
 
         void RestoreAppIcon()
         {
-            try
-            {
-                if (appIcon == null) return;
-                Icon = appIcon;
-                if (IsHandleCreated) TaskbarIcon.SetClassIcon(Handle, appIcon);
-            }
+            try { if (IsHandleCreated) TaskbarBar.Overlay(Handle, IntPtr.Zero); }
             catch { }
         }
 

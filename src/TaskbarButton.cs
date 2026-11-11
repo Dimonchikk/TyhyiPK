@@ -1,5 +1,7 @@
-// Тихий ПК — смужка на кнопці програми на панелі завдань (стандартна можливість Windows 7+, ITaskbarList3).
-// Зелена — спокійно, жовта — помітне навантаження, червона — на межі.
+// Тихий ПК — кнопка програми на панелі завдань (стандартні можливості Windows 7+, ITaskbarList3):
+// • смужка навантаження: зелена — спокійно, жовта — помітне навантаження, червона — на межі;
+// • маленький значок у кутку кнопки (як лічильник повідомлень у месенджерах) — крутний вентилятор.
+//   Сам значок кнопки міняти не вийде: програма працює з правами адміністратора, і панель завдань його не перечитує.
 using System;
 using System.Runtime.InteropServices;
 
@@ -18,6 +20,14 @@ namespace TyhyiPK
             void MarkFullscreenWindow(IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool fullscreen);
             void SetProgressValue(IntPtr hwnd, ulong completed, ulong total);
             void SetProgressState(IntPtr hwnd, int flags);
+            void RegisterTab(IntPtr hwndTab, IntPtr hwndMdi);
+            void UnregisterTab(IntPtr hwndTab);
+            void SetTabOrder(IntPtr hwndTab, IntPtr hwndInsertBefore);
+            void SetTabActive(IntPtr hwndTab, IntPtr hwndMdi, uint reserved);
+            void ThumbBarAddButtons(IntPtr hwnd, uint count, IntPtr buttons);
+            void ThumbBarUpdateButtons(IntPtr hwnd, uint count, IntPtr buttons);
+            void ThumbBarSetImageList(IntPtr hwnd, IntPtr himl);
+            void SetOverlayIcon(IntPtr hwnd, IntPtr icon, [MarshalAs(UnmanagedType.LPWStr)] string description);
         }
 
         [ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090"), ClassInterface(ClassInterfaceType.None)]
@@ -26,6 +36,29 @@ namespace TyhyiPK
         public const int Off = 0, Green = 2, Red = 4, Yellow = 8;   // TBPF_NOPROGRESS, NORMAL, ERROR, PAUSED
         static ITaskbarList3 list;
         static bool unavailable;
+
+        static bool Ready()
+        {
+            if (unavailable) return false;
+            if (list != null) return true;
+            try
+            {
+                list = (ITaskbarList3)new TaskbarList();
+                list.HrInit();
+                return true;
+            }
+            catch { unavailable = true; return false; }
+        }
+
+        static IntPtr lastOverlay = (IntPtr)(-1);
+
+        // Значок у кутку кнопки; IntPtr.Zero — прибрати.
+        public static void Overlay(IntPtr hwnd, IntPtr icon)
+        {
+            if (hwnd == IntPtr.Zero || icon == lastOverlay || !Ready()) return;
+            try { list.SetOverlayIcon(hwnd, icon, icon == IntPtr.Zero ? null : "Тихий ПК"); lastOverlay = icon; }
+            catch { lastOverlay = (IntPtr)(-1); }
+        }
         static int lastState = -1, lastValue = -1;
 
         public static void Set(IntPtr hwnd, int state, int percent)
@@ -33,15 +66,7 @@ namespace TyhyiPK
             if (unavailable || hwnd == IntPtr.Zero) return;
             percent = Math.Max(3, Math.Min(100, percent));
             if (state == lastState && (state == Off || percent == lastValue)) return;
-            try
-            {
-                if (list == null)
-                {
-                    list = (ITaskbarList3)new TaskbarList();
-                    list.HrInit();
-                }
-            }
-            catch { unavailable = true; return; }
+            if (!Ready()) return;
             try
             {
                 if (state != Off) list.SetProgressValue(hwnd, (ulong)percent, 100);
@@ -52,53 +77,7 @@ namespace TyhyiPK
             catch { lastState = -1; }   // кнопки ще немає — спробуємо з наступним заміром
         }
 
-        public static void Reset() { lastState = -1; lastValue = -1; }
+        public static void Reset() { lastState = -1; lastValue = -1; lastOverlay = (IntPtr)(-1); }
     }
 }
 
-namespace TyhyiPK
-{
-    // Значок на кнопці панелі завдань. Програма працює з правами адміністратора, а Провідник — ні:
-    // Windows не дає йому «спитати» в нашого вікна новий значок (UIPI), і він показує старий значок класу вікна.
-    // Тому дозволяємо цей запит і заразом міняємо значок класу — так Провідник бачить кожен новий кадр.
-    static class TaskbarIcon
-    {
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        static extern bool ChangeWindowMessageFilterEx(IntPtr hwnd, uint msg, uint action, IntPtr info);
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetClassLongPtrW")]
-        static extern IntPtr SetClassLongPtr64(IntPtr hwnd, int index, IntPtr value);
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetClassLongW")]
-        static extern int SetClassLong32(IntPtr hwnd, int index, int value);
-
-        const int GCLP_HICON = -14, GCLP_HICONSM = -34;
-
-        public static void AllowIconQueries(IntPtr hwnd)
-        {
-            try
-            {
-                ChangeWindowMessageFilterEx(hwnd, 0x007F, 1, IntPtr.Zero);   // WM_GETICON, MSGFLT_ALLOW
-                ChangeWindowMessageFilterEx(hwnd, 0x0313, 1, IntPtr.Zero);   // 0x313 — меню кнопки на панелі завдань
-            }
-            catch { }
-        }
-
-        public static void SetClassIcon(IntPtr hwnd, System.Drawing.Icon icon)
-        {
-            if (hwnd == IntPtr.Zero || icon == null) return;
-            try
-            {
-                if (IntPtr.Size == 8)
-                {
-                    SetClassLongPtr64(hwnd, GCLP_HICON, icon.Handle);
-                    SetClassLongPtr64(hwnd, GCLP_HICONSM, icon.Handle);
-                }
-                else
-                {
-                    SetClassLong32(hwnd, GCLP_HICON, icon.Handle.ToInt32());
-                    SetClassLong32(hwnd, GCLP_HICONSM, icon.Handle.ToInt32());
-                }
-            }
-            catch { }
-        }
-    }
-}

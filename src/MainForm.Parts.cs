@@ -179,7 +179,6 @@ namespace TyhyiPK
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            TaskbarIcon.AllowIconQueries(Handle);
             Ui.StyleCaption(this);
         }
     
