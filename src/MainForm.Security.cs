@@ -49,6 +49,18 @@ namespace TyhyiPK
             return p;
         }
 
+        ProgressStrip pgScan, pgClean, pgSpeed, pgWin, pgTest;
+        PillBtn btnDefOpen, btnCleanRecount;
+        Label lblTestNote;
+
+        ProgressStrip AddStrip(Page p, Rectangle r)
+        {
+            var s = new ProgressStrip();
+            s.Bounds = r;
+            p.Controls.Add(s);
+            return s;
+        }
+
         PillBtn SecBtn(Page p, string text, Rectangle r, EventHandler click, bool primary)
         {
             var b = new PillBtn();
@@ -93,7 +105,8 @@ namespace TyhyiPK
             kvDefender.Set(4, "Брандмауер Windows", "", null);
             p.Controls.Add(kvDefender);
             btnScan = SecBtn(p, "Швидка перевірка", Ui.R(24, 324, 190, 36), (s, e) => QuickScan(), true);
-            SecBtn(p, "Відкрити «Безпеку Windows»", Ui.R(222, 324, 250, 36), (s, e) => OpenUrl("windowsdefender:"), false);
+            btnDefOpen = SecBtn(p, "Відкрити «Безпеку Windows»", Ui.R(222, 324, 250, 36), (s, e) => OpenUrl("windowsdefender:"), false);
+            pgScan = AddStrip(p, Ui.R(24, 322, 552, 40));
             lblDef = Note(p, "", Ui.R(28, 368, 544, 48));
 
             // ── Майнери ──
@@ -298,6 +311,8 @@ namespace TyhyiPK
             btnScan.Enabled = false;
             btnScan.Text = "Перевіряю…";
             lblDef.Text = "Швидка перевірка триває (зазвичай 2–10 хвилин). Можна користуватися ПК як завжди.";
+            pgScan.Start("Швидка перевірка", 300, btnScan, btnDefOpen);
+            pgScan.Phase("шукаю загрози", 0, 1, 300);
             RunBg(() =>
             {
                 string o;
@@ -307,6 +322,7 @@ namespace TyhyiPK
                     scanning = false;
                     btnScan.Enabled = true;
                     btnScan.Text = "Швидка перевірка";
+                    pgScan.Finish(code == 0, code == 0 ? "Загроз не знайдено" : code == 2 ? "Знайдено загрози" : "Не вдалося перевірити");
                     if (code == 0) lblDef.Text = "Перевірку завершено: загроз не знайдено.";
                     else if (code == 2)
                     {

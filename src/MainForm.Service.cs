@@ -96,7 +96,8 @@ namespace TyhyiPK
             lstClean.CheckChanged += (s, e) => UpdateCleanTotal();
             lblCleanTotal = Ui.MakeLabel(p, "", Ui.R(28, 306, 544, 24), Ui.BodySemi, Ui.CInk, Ui.CBg);
             btnClean = SecBtn(p, "Очистити вибране", Ui.R(24, 336, 190, 36), (s, e) => CleanNow(), true);
-            SecBtn(p, "Порахувати ще раз", Ui.R(222, 336, 180, 36), (s, e) => MeasureClean(), false);
+            btnCleanRecount = SecBtn(p, "Порахувати ще раз", Ui.R(222, 336, 180, 36), (s, e) => MeasureClean(), false);
+            pgClean = AddStrip(p, Ui.R(24, 334, 552, 40));
             lblCleanResult = Note(p, "Порада: закрий браузери перед очищенням — тоді звільниться більше.", Ui.R(28, 382, 544, 48));
 
             // ── Інтернет ──
@@ -111,6 +112,7 @@ namespace TyhyiPK
             p.Controls.Add(kvSpeed);
             btnSpeed = SecBtn(p, "Перевірити швидкість", Ui.R(24, 194, 210, 36), (s, e) => SpeedTest(), true);
             btnVpn = SecBtn(p, "Перевірити VPN", Ui.R(242, 194, 170, 36), (s, e) => VpnCheck(), false);
+            pgSpeed = AddStrip(p, Ui.R(24, 192, 552, 40));
             p.Cards.Add(Ui.R(24, 242, 552, 92));
             kvVpn = new KeyValueList();
             kvVpn.Bounds = Ui.R(32, 244, 536, 88);
@@ -144,6 +146,7 @@ namespace TyhyiPK
             p.Controls.Add(kvWin);
             btnWinCheck = SecBtn(p, "Перевірити", Ui.R(24, 214, 150, 36), (s, e) => WinCheck(false), true);
             btnWinFix = SecBtn(p, "Виправити", Ui.R(182, 214, 150, 36), (s, e) => WinCheck(true), false);
+            pgWin = AddStrip(p, Ui.R(24, 212, 552, 40));
             lblWin = Note(p, "", Ui.R(28, 258, 544, 60));
 
             // ── Збої й сині екрани ──
@@ -180,7 +183,8 @@ namespace TyhyiPK
             p.Cards.Add(Ui.R(24, 0, 552, 96));
             lblTest = Ui.MakeLabel(p, "Процесор 2 рази по хвилині працює на повну: у «Звичайному» і «Тихому» режимі. Програма порівняє температуру, споживання й швидкість.",
                 Ui.R(40, 8, 360, 82), Ui.Body, Ui.CInk, Ui.CCard);
-            Note(p, "Під час тесту вентилятори можуть зашуміти — так і має бути. Краще закрити ігри й важкі програми.", Ui.R(28, 104, 544, 40));
+            lblTestNote = Note(p, "Під час тесту вентилятори можуть зашуміти — так і має бути. Краще закрити ігри й важкі програми.", Ui.R(28, 104, 544, 40));
+            pgTest = AddStrip(p, Ui.R(24, 104, 552, 40));
             btnTest = new PillBtn();
             btnTest.Text = "Почати тест";
             btnTest.Bounds = Ui.R(412, 30, 148, 36);
@@ -295,10 +299,18 @@ namespace TyhyiPK
             cleanBusy = true;
             btnClean.Enabled = false;
             btnClean.Text = "Очищую…";
+            pgClean.Start("Очищення", 4 + sel.Count * 3, btnClean, btnCleanRecount);
             RunBg(() =>
             {
                 long freed = 0;
-                foreach (var t in sel) freed += Cleaner.Clean(t);
+                for (int i = 0; i < sel.Count; i++)
+                {
+                    var t = sel[i];
+                    double a = 0.9 * i / sel.Count, b = 0.9 * (i + 1) / sel.Count;
+                    Ui_(() => pgClean.Phase(t.Title.ToLowerInvariant(), a, b, 4));
+                    freed += Cleaner.Clean(t);
+                }
+                Ui_(() => pgClean.Phase("рахую, що лишилось", 0.9, 1, 4));
                 var list = Cleaner.Targets();
                 var keep = cleanTargets.ToDictionary(t => t.Key, t => t.Checked);
                 foreach (var t in list) { bool c; if (keep.TryGetValue(t.Key, out c)) t.Checked = c; Cleaner.Measure(t); }
@@ -307,6 +319,7 @@ namespace TyhyiPK
                     cleanBusy = false;
                     btnClean.Enabled = true;
                     btnClean.Text = "Очистити вибране";
+                    pgClean.Finish(true, "Звільнено " + (freed > 0 ? Cleaner.Size(freed) : "трохи місця"));
                     cleanMeasured = DateTime.UtcNow;
                     ShowClean(list);
                     if (heroClean != null) heroClean.Set("Готово! Звільнено " + (freed > 0 ? Cleaner.Size(freed) : "трохи місця") + ".", "Диск став трохи вільнішим.", "check", Ui.Green);
@@ -329,6 +342,9 @@ namespace TyhyiPK
             kvSpeed.Set(1, "Стабільність", "", Ui.Ink3);
             kvSpeed.Set(2, "Завантаження", "", Ui.Ink3);
             kvSpeed.Set(3, "Відвантаження", "", Ui.Ink3);
+            double ss = NetCheck.SpeedSeconds + 1.5;
+            pgSpeed.Start("Перевірка швидкості", 4 + 2 * ss, btnSpeed, btnVpn);
+            pgSpeed.Phase("пінг", 0, 0.1, 4);
             RunBg(() =>
             {
                 var cf = NetCheck.Ping("1.1.1.1", 8);
@@ -352,12 +368,14 @@ namespace TyhyiPK
                             bad ? Ui.Orange : Ui.Green);
                     }
                     kvSpeed.Set(2, "Завантаження", "міряю…", Ui.Ink3);
+                    pgSpeed.Phase("завантаження", 0.1, 0.55, ss);
                 });
                 double down = NetCheck.Download(v => Ui_(() => kvSpeed.Set(2, "Завантаження", "міряю… " + Mbps(v), Ui.Ink3)));
                 Ui_(() =>
                 {
                     kvSpeed.Set(2, "Завантаження", double.IsNaN(down) ? "не вдалося" : Mbps(down), double.IsNaN(down) ? Ui.Red : (Color?)null);
                     kvSpeed.Set(3, "Відвантаження", "міряю…", Ui.Ink3);
+                    pgSpeed.Phase("відвантаження", 0.55, 1, ss);
                 });
                 double up = NetCheck.Upload(v => Ui_(() => kvSpeed.Set(3, "Відвантаження", "міряю… " + Mbps(v), Ui.Ink3)));
                 Ui_(() =>
@@ -366,6 +384,7 @@ namespace TyhyiPK
                     speedBusy = false;
                     btnSpeed.Enabled = true;
                     btnSpeed.Text = "Перевірити швидкість";
+                    pgSpeed.Finish(!double.IsNaN(down), double.IsNaN(down) ? "Не вдалося виміряти" : "Завантаження " + Mbps(down) + (double.IsNaN(up) ? "" : " · відвантаження " + Mbps(up)));
                     string verdict;
                     if (double.IsNaN(best.Avg) && double.IsNaN(down)) verdict = "Інтернету немає або його блокує брандмауер/антивірус.";
                     else if (!double.IsNaN(down) && down < 10) verdict = "Інтернет повільний: відео в HD може підвисати. Якщо через Wi-Fi — спробуй ближче до роутера або кабель.";
@@ -528,6 +547,9 @@ namespace TyhyiPK
             kvWin.Set(0, "Сховище компонентів", "перевіряю…", Ui.Ink3);
             kvWin.Set(1, "Системні файли", "чекає", Ui.Ink3);
             lblWin.Text = repair ? "Крок 1 з 2: відновлення сховища Windows (DISM). Не вимикай ПК." : "Крок 1 з 2: перевірка сховища Windows.";
+            double d1 = repair ? 600 : 120, d2 = repair ? 600 : 420;
+            pgWin.Start(repair ? "Виправлення Windows" : "Перевірка Windows", d1 + d2, btnWinCheck, btnWinFix);
+            pgWin.Phase("крок 1 з 2: сховище компонентів", 0, d1 / (d1 + d2), d1);
             RunBg(() =>
             {
                 string t1, t2;
@@ -537,6 +559,7 @@ namespace TyhyiPK
                     kvWin.Set(0, "Сховище компонентів", r1 == 0 ? "у порядку" : r1 == 1 ? (repair ? "відновлено" : "є проблеми") : r1 == 2 ? "пошкоджено" : "не вдалося",
                         r1 == 0 ? Ui.Green : r1 == 1 ? (repair ? Ui.Green : Ui.Orange) : Ui.Red);
                     kvWin.Set(1, "Системні файли", "перевіряю…", Ui.Ink3);
+                    pgWin.Phase("крок 2 з 2: системні файли", d1 / (d1 + d2), 1, d2);
                     lblWin.Text = "Крок 2 з 2: " + (repair ? "перевірка й виправлення" : "перевірка") + " системних файлів (SFC). Це найдовша частина.";
                 });
                 int r2 = WinHealth.Sfc(repair, out t2);
@@ -544,6 +567,8 @@ namespace TyhyiPK
                 {
                     winBusy = false;
                     btnWinCheck.Enabled = btnWinFix.Enabled = true;
+                    pgWin.Finish(r1 >= 0 && r2 >= 0 && (Math.Max(r1, r2) == 0 || repair && Math.Max(r1, r2) == 1),
+                        r1 < 0 && r2 < 0 ? "Не вдалося перевірити" : Math.Max(r1, r2) == 0 ? "Windows у порядку" : repair && Math.Max(r1, r2) == 1 ? "Windows відновлено" : "Є проблеми — натисни «Виправити»");
                     btnWinCheck.Text = "Перевірити";
                     btnWinFix.Text = "Виправити";
                     kvWin.Set(1, "Системні файли", r2 == 0 ? "у порядку" : r2 == 1 ? (repair ? "виправлено" : "є пошкоджені") : r2 == 2 ? "не все виправлено" : "не вдалося",
@@ -633,7 +658,9 @@ namespace TyhyiPK
             if (double.IsNaN(sp)) tSpeed.Set("—", Ui.Ink3, "", false);
             else tSpeed.Set(Math.Round(sp) + "%", null, "від звичайної", false);
             tWhen.Set(p[5].Split(' ')[0], null, p[5].Contains(" ") ? p[5].Split(' ')[1] : "", false);
-            if (heroTest != null && !double.IsNaN(nT) && !double.IsNaN(qT))
+            if (heroTest != null && !double.IsNaN(nT) && !double.IsNaN(qT) && qT - nT > -1.5)
+                heroTest.Set("Різниці майже немає.", "Під цим навантаженням «Тихий» і «Звичайний» працюють однаково — процесор не впирається в ліміти.", "gauge", Ui.Blue);
+            else if (heroTest != null && !double.IsNaN(nT) && !double.IsNaN(qT))
                 heroTest.Set("«Тихий» холодніший на " + Math.Abs(Math.Round(qT - nT)) + "°.", "Ціною " + (double.IsNaN(sp) ? "" : Math.Round(100 - sp) + "% ") + "швидкості під повним навантаженням. В іграх різниця зазвичай менша.", "gauge", Ui.Green);
             else if (heroTest != null)
                 heroTest.Set("Тест завершено.", double.IsNaN(sp) ? "" : "«Тихий» дає " + Math.Round(sp) + "% швидкості від звичайної.", "gauge", Ui.Blue);
@@ -671,6 +698,8 @@ namespace TyhyiPK
             perfTest = true;
             btnTest.Enabled = false;
             btnTest.Text = "Триває…";
+            pgTest.Start("Тест режимів", 140, lblTestNote);
+            pgTest.Phase("етап 1 з 2: «" + Modes.Title("normal") + "»", 0, 0.5, 70);
             string before = cpu.Current;
             var th = new Thread(() => PerfTestRun(before));
             th.IsBackground = true;
@@ -693,6 +722,7 @@ namespace TyhyiPK
                     bool ok = false;
                     Invoke(new MethodInvoker(() => { ok = Power.Apply(ph.Mode); if (ok) { cpu.Current = ph.Mode; RefreshRow(cpu); } }));
                     if (!ok) { abort = "не вдалося перемкнути режим (потрібні права адміністратора)"; break; }
+                    if (k > 0) { int kk = k; Ui_(() => pgTest.Phase("етап " + (kk + 1) + " з 2: «" + Modes.Title(ph.Mode) + "»", 0.5 * kk, 0.5 * (kk + 1), 70)); }
                     var temps = new List<double>();
                     var watts = new List<double>();
                     long w0 = 0;
@@ -729,6 +759,7 @@ namespace TyhyiPK
                         perfTest = false;
                         btnTest.Enabled = true;
                         btnTest.Text = "Почати тест";
+                        pgTest.Finish(abort == null, abort == null ? "Тест завершено" : "Тест зупинено");
                         EvaluateAuto();
                     }));
                 }
