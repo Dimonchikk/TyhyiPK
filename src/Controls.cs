@@ -1,4 +1,4 @@
-// Тихий ПК — власні елементи інтерфейсу.
+﻿// Тихий ПК — власні елементи інтерфейсу.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -658,6 +658,8 @@ namespace TyhyiPK
     class Row
     {
         public string Id, Title, Current = "normal", Manual = "normal", Suppressed, Failed;
+        public string[] Keys = Modes.Keys;   // які режими є в цьому рядку («ШІ» — лише для відеокарти)
+        public string WantRaw;               // режим, який мав би діяти без захисту від перегріву
         public DateTime FailedAt;
         public bool Available = true;
         public string UnavailableText;

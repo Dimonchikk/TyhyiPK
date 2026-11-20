@@ -1,4 +1,4 @@
-// Тихий ПК — головне вікно: побудова інтерфейсу, вікно й значок біля годинника.
+﻿// Тихий ПК — головне вікно: побудова інтерфейсу, вікно й значок біля годинника.
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -61,10 +61,11 @@ namespace TyhyiPK
         void BuildRow(Row row, int y)
         {
             row.Seg = new Segmented();
-            row.Seg.Items = Modes.All.Select(m => m.Title).ToArray();
-            row.Seg.Accent = i => Modes.All[i].Color;
+            row.Seg.Items = row.Keys.Select(k => Modes.Title(k)).ToArray();
+            row.Seg.Accent = i => Modes.Get(row.Keys[i]).Color;
+            row.Seg.FitText = row.Keys.Length > 5;
             row.Seg.Bounds = Ui.R(40, y, 520, 34);
-            row.Seg.ItemClicked += i => UserSelect(row, Modes.Keys[i], true);
+            row.Seg.ItemClicked += i => UserSelect(row, row.Keys[i], true);
             pageModes.Controls.Add(row.Seg);
             row.DescLabel = Ui.MakeLabel(pageModes, "", Ui.R(40, y + 42, 520, 48), Ui.Small, Ui.CInk2, Ui.CCard);
         }
@@ -217,6 +218,7 @@ namespace TyhyiPK
                 return;
             }
             stop = true;
+            Lhm.ResetGpuFans();
             Energy.Save();
             GameStats.Save();
             Thermal.Save();
@@ -227,6 +229,7 @@ namespace TyhyiPK
         {
             exiting = true;
             stop = true;
+            Lhm.ResetGpuFans();
             Energy.Save();
             GameStats.Save();
             Thermal.Save();
@@ -251,6 +254,7 @@ namespace TyhyiPK
         {
             if (loading) return;
             Settings.SetBool("AutoGame", tgGame.Checked);
+            Settings.SetBool("AutoAi", tgAi.Checked);
             Settings.Set("GameMode", GameModeKeys[Math.Max(0, segGame.Selected)]);
             Settings.SetBool("Night", tgNight.Checked);
             Settings.Set("NightFrom", tbFrom.Value.ToString("hh\\:mm"));
@@ -271,8 +275,9 @@ namespace TyhyiPK
         void RefreshRow(Row row)
         {
             row.Seg.Enabled = row.Available;
-            row.Seg.Selected = Modes.Index(row.Current);
+            row.Seg.Selected = Array.IndexOf(row.Keys, row.Current);
             row.DescLabel.Text = row.Available ? row.Desc(row.Current) : row.UnavailableText;
+            if (row == gpu) UpdateGpuFans(last);
         }
 
         void UpdateTrayText()
@@ -335,6 +340,7 @@ namespace TyhyiPK
             runningGame = game;
             if (!tgGame.Checked) game = null;
             if (game != null) { kind = "game"; return game; }
+            if (runningAi != null && tgAi.Checked) { kind = "ai"; return runningAi; }
             if (hasBattery && tgBattery.Checked && OnBattery()) { kind = "battery"; return null; }
             if (tgNight.Checked && IsNight(DateTime.Now)) { kind = "night"; return null; }
             kind = null;
@@ -365,6 +371,7 @@ namespace TyhyiPK
             string kind;
             string game = CurrentReason(out kind);
             string target = kind == "game" ? (GameStats.ModeFor(game) ?? GameModeKeys[Math.Max(0, segGame.Selected)])
+                : kind == "ai" ? "ai"
                 : kind == "battery" ? QuietModeKeys[Math.Max(0, segBattery.Selected)]
                 : kind == "night" ? QuietModeKeys[Math.Max(0, segNight.Selected)]
                 : null;
@@ -374,9 +381,10 @@ namespace TyhyiPK
             {
                 if (r.Suppressed != null && kind != r.Suppressed) r.Suppressed = null;
                 if (!r.Available) continue;
-                bool auto = kind != null && kind != r.Suppressed;
+                bool auto = kind != null && kind != r.Suppressed && Array.IndexOf(r.Keys, target) >= 0;
                 if (auto) autoActive = true;
                 string want = auto ? target : r.Manual;
+                r.WantRaw = want;
                 if (r.Heat && Modes.Index(want) > Modes.Index("quiet")) want = "quiet";
                 bool heatStart = r.HeatJustStarted;
                 r.HeatJustStarted = false;
@@ -397,6 +405,9 @@ namespace TyhyiPK
             else if (kind == "game")
                 status = autoActive ? "Запущено гру «" + game + "» — увімкнено «" + Modes.Title(target) + "»."
                     : "Запущено гру «" + game + "», але режим вибрано вручну — автоматика чекає, поки гра закриється.";
+            else if (kind == "ai")
+                status = autoActive ? "Працює ШІ-модель (" + game + ") — відеокарта в режимі «ШІ», вентилятори крутяться примусово."
+                    : "Працює ШІ-модель (" + game + "), але режим карти вибрано вручну — автоматика чекає, поки модель вивантажиться.";
             else if (kind == "battery")
                 status = autoActive ? "Працює від батареї — увімкнено «" + Modes.Title(target) + "»."
                     : "Працює від батареї, але режим вибрано вручну — автоматика чекає на зарядку.";
@@ -404,12 +415,12 @@ namespace TyhyiPK
                 status = autoActive ? "Нічний час — увімкнено «" + Modes.Title(target) + "» до " + tbTo.Value.ToString("hh\\:mm") + "."
                     : "Нічний час, але режим вибрано вручну — автоматика повернеться наступної ночі.";
             else
-                status = tgGame.Checked || tgNight.Checked || tgBattery.Checked || tgHeat.Checked
+                status = tgGame.Checked || tgAi.Checked || tgNight.Checked || tgBattery.Checked || tgHeat.Checked
                     ? "Автоматика стежить, але зараз нічого не змінює." : "Автоматика вимкнена.";
             lblStatus.Text = status;
             if (heroRules != null)
             {
-                bool anyOn = tgGame.Checked || tgNight.Checked || tgBattery.Checked || tgHeat.Checked;
+                bool anyOn = tgGame.Checked || tgAi.Checked || tgNight.Checked || tgBattery.Checked || tgHeat.Checked;
                 if (hot.Count > 0) heroRules.Set("Захист від перегріву спрацював.", status, "warn", Ui.Orange);
                 else if (autoActive) heroRules.Set("Автоматика працює.", status, "auto", Ui.Blue);
                 else if (anyOn) heroRules.Set("Автоматика стежить.", status, "auto", Ui.Green);
@@ -474,6 +485,8 @@ namespace TyhyiPK
         string DetectGame()
         {
             string found = null;
+            string ai = null;
+            int ollama = 0;
             var alive = new HashSet<int>();
             foreach (var p in Process.GetProcesses())
             {
@@ -484,11 +497,16 @@ namespace TyhyiPK
                     string name;
                     try { name = p.ProcessName; } catch { continue; }
                     alive.Add(id);
+                    if (string.Equals(name, "ollama", StringComparison.OrdinalIgnoreCase)) ollama++;
+                    else if (ai == null && AiApps.ContainsKey(name)) ai = AiApps[name];
                     if (found != null || Games.IsIgnored(name)) continue;
                     if (Games.IsKnown(name) || Games.IsGamePath(name, ProcessPath(id, name))) found = name;
                 }
             }
             foreach (int k in pathCache.Keys.Where(k => !alive.Contains(k)).ToList()) pathCache.Remove(k);
+            // Ollama: «ollama serve» працює завжди, а модель завантажена, коли поруч є ще процес-«runner».
+            if (ai == null && ollama >= 2) ai = "Ollama";
+            runningAi = ai;
             return found;
         }
     
@@ -539,6 +557,9 @@ namespace TyhyiPK
                     s.GpuTemp = gpuVals[5];
                 }
                 if (double.IsNaN(s.GpuTemp)) s.GpuTemp = d.GpuTemp;
+                s.GpuFanRpm = d.GpuFanRpm;
+                s.GpuFanPct = d.GpuFanPct;
+                DriveGpuFans(s, tick);
                 try
                 {
                     var m = new MemoryStatus();
@@ -606,6 +627,7 @@ namespace TyhyiPK
                 batteryCharging = s.BatteryCharging;
             }
             UpdateTrayIcon(s);
+            UpdateGpuFans(s);
             if (Visible && pageModes.Visible) UpdateHome();
             if (Visible) ShowSnapshotTiles(s);
             bool changed = TrackHeat(cpu, s.CpuTempFromBoard ? double.NaN : s.CpuTemp);

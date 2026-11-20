@@ -1,4 +1,4 @@
-// Тихий ПК — головне вікно.
+﻿// Тихий ПК — головне вікно.
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -55,7 +55,7 @@ namespace TyhyiPK
         readonly StatTile sCpuTemp, sCpuLoad, sCpuPower, sFan, sGpuTemp, sGpuPower, sMem, sTotal;
         readonly TempChart chart;
         readonly ProcList procList;
-        readonly Toggle tgGame, tgNight, tgBattery, tgHeat, tgAutorun;
+        readonly Toggle tgGame, tgAi, tgNight, tgBattery, tgHeat, tgAutorun;
         readonly TimeBox tbFrom, tbTo;
         readonly NotifyIcon tray;
         readonly ContextMenuStrip trayMenu;
@@ -159,6 +159,7 @@ namespace TyhyiPK
             mFan = Tile(pageModes, 3, 92, 80, "Кулер ЦП");
 
             cpu.Id = "cpu";
+            cpu.Keys = Modes.Keys.Where(k => k != "ai").ToArray();
             cpu.Title = "Процесор";
             cpu.Apply = Power.Apply;
             cpu.Desc = m => Modes.Get(m).Desc;
@@ -227,6 +228,11 @@ namespace TyhyiPK
             pageAuto.Controls.Add(games);
             y += 44;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
+            RowLabel("Коли працює ШІ-модель", Ui.R(40, y + 4, 420, 26));
+            Ui.MakeLabel(pageAuto, "Ollama, LM Studio, llama.cpp — карта в «ШІ», вентилятори примусово.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            tgAi = NewToggle(y + 14);
+            y += 56;
+            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
             RowLabel("Вночі з", Ui.R(40, y + 1, 68, 55));
             tbFrom = new TimeBox();
             tbFrom.Bounds = Ui.R(108, y + 13, 66, 30);
@@ -263,7 +269,7 @@ namespace TyhyiPK
             y += 56;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
             RowLabel("Перевіряти оновлення", Ui.R(40, y + 4, 420, 26));
-            Ui.MakeLabel(pageAuto, "Програма сама питає GitHub під час запуску й щогодини, чи вийшла нова версія.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            Ui.MakeLabel(pageAuto, "Програма сама питає GitHub про нову версію під час запуску й щогодини.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
             tgUpdates = NewToggle(y + 14);
             y += 56;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
@@ -307,7 +313,7 @@ namespace TyhyiPK
                 item.Click += (s, e) =>
                 {
                     string key = (string)((ToolStripMenuItem)s).Tag;
-                    foreach (var r in rows) if (r.Available) UserSelect(r, key, false);
+                    foreach (var r in rows) if (r.Available && Array.IndexOf(r.Keys, key) >= 0) UserSelect(r, key, false);
                     EvaluateAuto();
                 };
                 trayMenu.Items.Add(item);
@@ -364,6 +370,7 @@ namespace TyhyiPK
             if (gpu.Available) Settings.Set("GpuManual", gpu.Manual);
 
             tgGame.Checked = Settings.GetBool("AutoGame", true);
+            tgAi.Checked = Settings.GetBool("AutoAi", true);
             segGame.Selected = Math.Max(0, Array.IndexOf(GameModeKeys, Settings.Get("GameMode", "boost")));
             tgNight.Checked = Settings.GetBool("Night", false);
             tbFrom.Value = ParseTime(Settings.Get("NightFrom", "23:00"), 23);
@@ -375,6 +382,7 @@ namespace TyhyiPK
             segHeat.Selected = Math.Max(0, Array.IndexOf(HeatLimits, ParseInt(Settings.Get("HeatLimit", "85"), 85)));
 
             tgGame.Changed += (s, e) => SaveAuto();
+            tgAi.Changed += (s, e) => SaveAuto();
             segGame.ItemClicked += i => { segGame.Selected = i; SaveAuto(); };
             tgNight.Changed += (s, e) => SaveAuto();
             tbFrom.Changed += (s, e) => SaveAuto();

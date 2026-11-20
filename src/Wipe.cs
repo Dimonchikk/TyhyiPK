@@ -1,4 +1,4 @@
-// Тихий ПК — повне видалення власних даних програми з комп'ютера.
+﻿// Тихий ПК — повне видалення власних даних програми з комп'ютера.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,6 +24,7 @@ namespace TyhyiPK
             catch { problems.Add("не вдалося повернути звичайний режим процесора"); }
             try
             {
+                Lhm.ResetGpuFans();
                 if (Gpu.CanLimit && !Gpu.Apply("normal"))
                     problems.Add("ліміт відеокарти не скинуто (потрібні права адміністратора). Перезавантаж ПК, і він скинеться сам");
             }

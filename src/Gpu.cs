@@ -1,4 +1,4 @@
-// Тихий ПК — ліміт споживання відеокарти NVIDIA через nvidia-smi.
+﻿// Тихий ПК — ліміт споживання відеокарти NVIDIA через nvidia-smi.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -71,6 +71,7 @@ namespace TyhyiPK
                 case "silent": t = Default * 0.7; break;
                 case "quiet": t = Default * 0.85; break;
                 case "boost": t = Default + (Max - Default) / 2; break;
+                case "ai": t = Default * 0.9; break;
                 case "super": t = Max; break;
                 default: t = Default; break;
             }
@@ -106,6 +107,10 @@ namespace TyhyiPK
                 case "silent": return "Ліміт споживання 70% (" + w + "). Карта помітно холодніша й тихіша, але FPS у важких іграх нижчий.";
                 case "quiet": return "Ліміт споживання 85% (" + w + "). Тихіше й холодніше, а FPS майже не падає.";
                 case "normal": return "Заводський ліміт (" + w + "), як задумав виробник.";
+                case "ai":
+                    return Lhm.GpuFansControllable == false
+                        ? "Для локальних ШІ-моделей: ліміт 90% (" + w + "). Швидкість відповідей майже та сама, а карта холодніша. Керувати вентиляторами ця карта не дозволяє."
+                        : "Для локальних ШІ-моделей: ліміт 90% (" + w + ") і примусове крутіння вентиляторів. Відповіді майже такі ж швидкі, а карта не перегрівається.";
                 case "boost":
                     return !HasHeadroom
                         ? "Ця відеокарта не дозволяє підняти ліміт вище заводського (" + w + "), тож це те саме, що «Звичайний»."

@@ -1,4 +1,4 @@
-// Тихий ПК — дані датчиків і збережені налаштування.
+﻿// Тихий ПК — дані датчиків і збережені налаштування.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,6 +27,8 @@ namespace TyhyiPK
         public double BatteryW = double.NaN;      // споживання з батареї (лише коли ноутбук не на зарядці)
         public double BatteryPct = double.NaN, BatteryRemainMWh = double.NaN;
         public bool BatteryOnAc = true, BatteryCharging;
+        public double GpuFanRpm = double.NaN, GpuFanPct = double.NaN;   // вентилятори відеокарти
+        public bool GpuFansForced;                                      // крутяться примусово (режим «ШІ»)
     }
 
     class TempSample

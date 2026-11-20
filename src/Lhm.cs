@@ -16,6 +16,7 @@ namespace TyhyiPK
         public double CpuTemp = double.NaN, GpuTemp = double.NaN, CpuPower = double.NaN, Fan = double.NaN, GpuPower = double.NaN;
         public bool FanIsCpu;
         public int FanCount;
+        public double GpuFanRpm = double.NaN, GpuFanPct = double.NaN;   // вентилятори відеокарти: оберти й відсоток
     }
 
     static class Lhm
@@ -84,6 +85,7 @@ namespace TyhyiPK
         }
 
         static object computer;
+        static readonly object sync = new object();   // доступ до бібліотеки — з одного потоку за раз
         static PropertyInfo hwProp;
         static readonly HashSet<string> resolving = new HashSet<string>();
 
@@ -235,12 +237,20 @@ namespace TyhyiPK
 
         public static LhmData Read()
         {
+            lock (sync) return ReadCore();
+        }
+
+        static LhmData ReadCore()
+        {
             var d = new LhmData();
             if (!Loaded) return d;
+            List<object> newControls = null;
+            bool hwsRead = false;
             try
             {
                 var hws = hwProp.GetValue(computer, null) as IEnumerable;
                 if (hws == null) return d;
+                hwsRead = true;
                 foreach (object hw in hws)
                 {
                     string type = Convert.ToString(Prop(hw, "HardwareType"));
@@ -249,8 +259,15 @@ namespace TyhyiPK
                     Update(hw);
                     double best = double.NaN;
                     int bestRank = 99;
+                    bool discrete = isGpu && type != "GpuIntel";
+                    if (discrete && fanControls == null) newControls = newControls ?? new List<object>();
                     foreach (object s in Sensors(hw))
                     {
+                        if (newControls != null && discrete && Convert.ToString(Prop(s, "SensorType")) == "Control")
+                        {
+                            object c = Prop(s, "Control");
+                            if (c != null && c.GetType().GetMethod("SetSoftware") != null) newControls.Add(c);
+                        }
                         object val = Prop(s, "Value");
                         if (val == null) continue;
                         double v = Convert.ToDouble(val);
@@ -266,6 +283,10 @@ namespace TyhyiPK
                             }
                             continue;
                         }
+                        if (discrete && st == "Fan" && v >= 0 && v < 10000)
+                            d.GpuFanRpm = double.IsNaN(d.GpuFanRpm) ? v : Math.Max(d.GpuFanRpm, v);
+                        if (discrete && st == "Control" && v >= 0 && v <= 100)
+                            d.GpuFanPct = double.IsNaN(d.GpuFanPct) ? v : Math.Max(d.GpuFanPct, v);
                         if (isCpu && st == "Power" && (name == "Package" || name == "CPU Package") && v > 0) d.CpuPower = v;
                         // Дискретна карта (вбудована Intel уже входить у споживання процесора).
                         if (isGpu && type != "GpuIntel" && st == "Power" && (name == "GPU Package" || name == "GPU Power" || name == "GPU Board Power") && v > 0 && v < 1000)
@@ -280,7 +301,84 @@ namespace TyhyiPK
                 }
             }
             catch { }
+            if (fanControls == null && hwsRead) fanControls = newControls ?? new List<object>();
             return d;
+        }
+
+        // ── Вентилятори відеокарти ──
+        // Бібліотека дає «керування» (Control) для кожного вентилятора карти, якщо драйвер це дозволяє
+        // (на настільних NVIDIA зазвичай так, на ноутбуках — здебільшого ні).
+        static List<object> fanControls;
+        static bool fansForced;
+        static double fansPct = double.NaN;
+
+        // null — ще невідомо (бібліотека не прочитала карту), true/false — можна чи ні.
+        public static bool? GpuFansControllable
+        {
+            get
+            {
+                if (!Tried) return null;
+                if (!Loaded) return false;
+                var c = fanControls;
+                return c == null ? (bool?)null : c.Count > 0;
+            }
+        }
+
+        public static bool GpuFansForced { get { return fansForced; } }
+
+        static float Clamp(object c, double pct)
+        {
+            double lo = 0, hi = 100;
+            try { lo = Convert.ToDouble(Prop(c, "MinSoftwareValue")); } catch { }
+            try { hi = Convert.ToDouble(Prop(c, "MaxSoftwareValue")); } catch { }
+            if (!(hi > lo)) { lo = 0; hi = 100; }
+            return (float)Math.Max(lo, Math.Min(hi, pct));
+        }
+
+        // Примусово крутити всі вентилятори карти на pct відсотків. Повторно ставить те саме значення
+        // не частіше, ніж треба (force — поставити ще раз, якщо драйвер повернув своє).
+        public static bool SetGpuFans(double pct, bool force)
+        {
+            lock (sync)
+            {
+                var list = fanControls;
+                if (list == null || list.Count == 0) return false;
+                if (!force && fansForced && Math.Abs(pct - fansPct) < 2) return true;
+                bool ok = false;
+                foreach (object c in list)
+                {
+                    try
+                    {
+                        c.GetType().GetMethod("SetSoftware").Invoke(c, new object[] { Clamp(c, pct) });
+                        ok = true;
+                    }
+                    catch { }
+                }
+                if (ok) { fansForced = true; fansPct = pct; }
+                return ok;
+            }
+        }
+
+        // Повернути вентилятори карти під керування драйвера (його власна крива, зупинка в простої тощо).
+        public static void ResetGpuFans()
+        {
+            lock (sync)
+            {
+                if (!fansForced) return;
+                var list = fanControls;
+                if (list != null)
+                    foreach (object c in list)
+                    {
+                        try
+                        {
+                            var m = c.GetType().GetMethod("SetDefault", Type.EmptyTypes);
+                            if (m != null) m.Invoke(c, null);
+                        }
+                        catch { }
+                    }
+                fansForced = false;
+                fansPct = double.NaN;
+            }
         }
 
         // Температура з термозон ACPI (без LibreHardwareMonitor), °C або NaN.
