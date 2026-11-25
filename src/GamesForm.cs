@@ -1,4 +1,4 @@
-// Тихий ПК — вікно «Список ігор».
+﻿// Тихий ПК — вікно «Список ігор».
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -32,7 +32,7 @@ namespace TyhyiPK
             lb.BorderStyle = BorderStyle.None;
             lb.Font = Ui.Body;
             lb.IntegralHeight = false;
-            lb.BackColor = Ui.Fill;
+            lb.BackColor = Ui.Solid(Ui.Fill);
             lb.ForeColor = Ui.Ink;
             page.Controls.Add(lb);
             return lb;
@@ -64,7 +64,7 @@ namespace TyhyiPK
             cmb.DropDownStyle = ComboBoxStyle.DropDownList;
             cmb.FlatStyle = FlatStyle.Flat;
             cmb.Font = Ui.Body;
-            cmb.BackColor = Ui.Fill;
+            cmb.BackColor = Ui.Solid(Ui.Fill);
             cmb.ForeColor = Ui.Ink;
             cmb.Bounds = Ui.R(38, 114, 300, 28);
             page.Controls.Add(cmb);

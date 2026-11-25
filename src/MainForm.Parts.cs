@@ -148,32 +148,47 @@ namespace TyhyiPK
             return int.TryParse(s, out v) ? v : def;
         }
 
-        // Тема: «Авто» — як у Windows, або вибрана вручну (кнопки вгорі праворуч).
-        public static bool WantDark()
+        // Тема: світла, темна або «Скло». Поки людина не вибрала сама — як у Windows (світла чи темна).
+        public static string WantTheme()
         {
             string t = Settings.Get("Theme", "auto");
-            return t == "dark" || (t != "light" && Ui.SystemDark());
+            if (t == "light" || t == "dark" || t == "glass") return t;
+            return Ui.SystemDark() ? "dark" : "light";
+        }
+
+        static int ThemeIndex()
+        {
+            return Math.Max(0, Array.IndexOf(ThemeKeys, WantTheme()));
         }
 
         void ApplyThemeNow()
         {
-            bool dark = WantDark();
-            if (dark == Ui.Dark) return;
-            Ui.ApplyTheme(dark);
+            string want = WantTheme();
+            bool wallChanged = Ui.Glass && Ui.WallpaperChanged();
+            themeSeg.Selected = ThemeIndex();
+            if (want == Ui.Theme && !wallChanged) return;
+            if (wallChanged) Ui.ResetWallpaper();
+            Ui.ApplyTheme(want);
+            Ui.BuildBackdrop(ClientSize);
             BackColor = Ui.Bg;
             foreach (var a in Ui.Rethemers.ToList()) a();
             Ui.StyleCaption(this);
             Invalidate(true);
         }
 
-        void CheckTheme()
+        void CheckTheme() { ApplyThemeNow(); }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
         {
-            bool dark = WantDark();
-            if (dark == Ui.Dark) return;
-            Ui.ApplyTheme(dark);
-            BackColor = Ui.Bg;
-            foreach (var a in Ui.Rethemers.ToList()) a();
-            Ui.StyleCaption(this);
+            if (Ui.Glass) Ui.PaintBack(e.Graphics, this, Ui.Bg);
+            else base.OnPaintBackground(e);
+        }
+
+        protected override void OnClientSizeChanged(EventArgs e)
+        {
+            base.OnClientSizeChanged(e);
+            if (!Ui.Glass) return;
+            Ui.BuildBackdrop(ClientSize);
             Invalidate(true);
         }
 

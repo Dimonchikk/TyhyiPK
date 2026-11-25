@@ -1,4 +1,4 @@
-// Тихий ПК — «оболонка» вікна в стилі macOS: бокове меню з іконками, прокручувані сторінки, статус-пігулка, головна картка.
+﻿// Тихий ПК — «оболонка» вікна в стилі macOS: бокове меню з іконками, прокручувані сторінки, статус-пігулка, головна картка.
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -162,6 +162,16 @@ namespace TyhyiPK
                                 g.FillRegion(b, rg);
                             }
                         }
+                        break;
+                    case "glass":
+                        // Шибка: заокруглений квадрат із двома косими відблисками.
+                        using (var p = Ui.Round(new RectangleF(x + s * 0.1f, y + s * 0.1f, s * 0.8f, s * 0.8f), s * 0.2f))
+                        {
+                            using (var b = new SolidBrush(Color.FromArgb(60, c))) g.FillPath(b, p);
+                            g.DrawPath(pen, p);
+                        }
+                        g.DrawLine(pen, x + s * 0.32f, y + s * 0.56f, x + s * 0.56f, y + s * 0.32f);
+                        g.DrawLine(pen, x + s * 0.46f, y + s * 0.7f, x + s * 0.7f, y + s * 0.46f);
                         break;
                     case "half":
                         g.DrawEllipse(pen, x + s * 0.08f, y + s * 0.08f, s * 0.84f, s * 0.84f);
@@ -352,7 +362,7 @@ namespace TyhyiPK
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = Prep(e);
-            g.Clear(Ui.Side);
+            Ui.PaintBack(g, this, Ui.Side);
             using (var pen = new Pen(Ui.CardLine, Math.Max(1f, Ui.Scale))) g.DrawLine(pen, Width - 1, 0, Width - 1, Height);
             Ui.Text(g, "Тихий ПК", Ui.Brand, new Rectangle(Ui.S(24), Ui.S(26) - scroll, Width - Ui.S(30), Ui.S(28)), Ui.Ink, Ui.Left);
             Ui.Text(g, "Менше шуму. Більше спокою.", Ui.Caps, new Rectangle(Ui.S(24), Ui.S(54) - scroll, Width - Ui.S(30), Ui.S(18)), Ui.Ink2, Ui.Left);
@@ -570,8 +580,7 @@ namespace TyhyiPK
         {
             var g = Prep(e);
             var r = new RectangleF(0, 0, Width - 1, Height - 1);
-            Ui.FillRound(g, r, Ui.S(16), Ui.CardLine);
-            Ui.FillRound(g, RectangleF.Inflate(r, -Math.Max(1f, Ui.Scale), -Math.Max(1f, Ui.Scale)), Ui.S(16) - 1, Ui.Card);
+            Ui.CardShape(g, r, Ui.S(16));
             int pad = Ui.S(22);
             int box = Height - Ui.S(24);
             int tw = Width - pad * 2 - box;
@@ -590,8 +599,8 @@ namespace TyhyiPK
     // Перемикач теми: три круглі кнопки «авто / світла / темна» на спільній «пігулці».
     class ThemeSwitch : UiControl
     {
-        static readonly string[] Keys = { "half", "sun", "moon" };
-        static readonly string[] Tips = { "Як у Windows", "Світла тема", "Темна тема" };
+        static readonly string[] Keys = { "sun", "moon", "glass" };
+        static readonly string[] Tips = { "Світла тема", "Темна тема", "Скло — прозора тема" };
         int selected, hover = -1;
         readonly ToolTip tip = new ToolTip();
         public event Action<int> Changed;
@@ -755,6 +764,7 @@ namespace TyhyiPK
         {
             offset = Math.Max(0, Math.Min(Content.Height - Height, y));
             Content.Top = -offset;
+            if (Ui.Glass) Content.Invalidate(true);   // тло прив'язане до вікна — після прокрутки малюємо заново
             int range = Content.Height - Height;
             bar.Frac = range <= 0 ? 1 : (float)Height / Content.Height;
             bar.Pos = range <= 0 ? 0 : (float)offset / range;

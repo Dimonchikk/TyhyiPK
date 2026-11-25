@@ -22,7 +22,7 @@ namespace TyhyiPK
         protected Graphics Prep(PaintEventArgs e)
         {
             var g = e.Graphics;
-            g.Clear(Back);
+            Ui.PaintBack(g, this, Back);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             return g;
@@ -630,8 +630,7 @@ namespace TyhyiPK
             var g = Prep(e);
             foreach (var r in Cards)
             {
-                Ui.FillRound(g, r, Ui.S(14), Ui.CardLine);
-                Ui.FillRound(g, RectangleF.Inflate(r, -Math.Max(1f, Ui.Scale), -Math.Max(1f, Ui.Scale)), Ui.S(14) - 1, Ui.Card);
+                Ui.CardShape(g, r, Ui.S(14));
             }
             g.SmoothingMode = SmoothingMode.None;
             using (var pen = new Pen(Ui.Separator, Math.Max(1f, Ui.Scale)))
@@ -978,8 +977,8 @@ namespace TyhyiPK
                 if (h != null) h.Handled = true;
             };
             Controls.Add(tb);
-            Ui.Rethemers.Add(() => { tb.BackColor = Ui.Fill; tb.ForeColor = Ui.Ink; Invalidate(); });
-            tb.BackColor = Ui.Fill;
+            Ui.Rethemers.Add(() => { tb.BackColor = Ui.Solid(Ui.Fill); tb.ForeColor = Ui.Ink; Invalidate(); });
+            tb.BackColor = Ui.Solid(Ui.Fill);
             tb.ForeColor = Ui.Ink;
         }
 

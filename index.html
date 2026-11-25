@@ -25,6 +25,24 @@ html[data-theme="dark"]{
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.5);
   --glass:rgba(22,22,24,.72);
 }
+/* «Скло»: напівпрозорі картки з розмиттям поверх кольорового сяйва */
+html[data-theme="glass"]{
+  --bg:#0a0c1a; --bg2:rgba(255,255,255,.04); --card:rgba(255,255,255,.075); --side:rgba(255,255,255,.06);
+  --ink:#ffffff; --ink2:rgba(255,255,255,.8); --ink3:rgba(255,255,255,.56); --line:rgba(255,255,255,.16);
+  --blue:#5ab0ff; --blue2:#3d9bff; --green:#4be08a; --orange:#ffbd4a; --red:#ff6b61; --purple:#cf7dff;
+  --shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 40px rgba(0,0,0,.35);
+  --glass:rgba(14,16,34,.42);
+}
+html[data-theme="glass"] body{background:
+  radial-gradient(60vw 50vw at 8% 0%,rgba(40,110,255,.55),transparent 70%),
+  radial-gradient(55vw 45vw at 95% 10%,rgba(150,70,230,.5),transparent 70%),
+  radial-gradient(60vw 50vw at 30% 75%,rgba(0,170,190,.38),transparent 70%),
+  radial-gradient(45vw 40vw at 90% 85%,rgba(230,90,160,.35),transparent 70%),
+  #0a0c1a;background-attachment:fixed}
+html[data-theme="glass"] :is(.card,.wide,.stat,.step,.faq,.get,.tabs,.theme,.note,.modes span){
+  -webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%)}
+html[data-theme="glass"] :is(.theme button[aria-pressed="true"],.tabs button[aria-selected="true"],.modes span.on){background:rgba(255,255,255,.2)}
+html[data-theme="glass"] .shot{box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px var(--line);background:transparent}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;scroll-padding-top:70px}
 body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -209,6 +227,7 @@ footer a{color:var(--ink2)}
     <div class="theme" role="group" aria-label="Тема">
       <button data-t="light" title="Світла" aria-label="Світла тема"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg></button>
       <button data-t="dark" title="Темна" aria-label="Темна тема"><svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="currentColor"/></svg></button>
+      <button data-t="glass" title="Скло" aria-label="Тема «Скло»"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="currentColor" fill-opacity=".25"/><path d="M8.5 13.5l5-5M11 16.5l5.5-5.5"/></svg></button>
     </div>
   </div>
 </header>
@@ -298,7 +317,7 @@ footer a{color:var(--ink2)}
     <section id="gallery" class="gallery reveal">
       <div class="head">
         <h2>Подивись зблизька.</h2>
-        <p>Світла й темна тема, бічне меню з підрозділами — у стилі сучасних систем.</p>
+        <p>Світла, темна і прозора тема «Скло», бічне меню з підрозділами — у стилі сучасних систем.</p>
       </div>
       <div class="tabs" role="tablist" aria-label="Знімки екрана">
         <button role="tab" data-i="0" aria-selected="true">Огляд</button>
@@ -400,16 +419,17 @@ footer a{color:var(--ink2)}
 
   // ----- тема -----
   var root = document.documentElement, mq = window.matchMedia("(prefers-color-scheme: dark)");
-  // Дві теми: світла й темна. Поки людина сама не вибрала — як у системі.
-  function chosen() { try { var t = localStorage.getItem("theme"); return t === "light" || t === "dark" ? t : null; } catch (e) { return null; } }
+  // Три теми: світла, темна й «Скло». Поки людина сама не вибрала — як у системі (світла чи темна).
+  function chosen() { try { var t = localStorage.getItem("theme"); return t === "light" || t === "dark" || t === "glass" ? t : null; } catch (e) { return null; } }
+  function suffix() { var t = root.getAttribute("data-theme"); return t === "dark" ? "-dark" : t === "glass" ? "-glass" : ""; }
   function saved() { return chosen() || (mq.matches ? "dark" : "light"); }
   function apply(mode) {
-    var dark = mode === "dark";
-    root.setAttribute("data-theme", dark ? "dark" : "light");
+    if (mode !== "dark" && mode !== "glass") mode = "light";
+    root.setAttribute("data-theme", mode);
     document.querySelectorAll(".theme button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.t === mode); });
-    // Кожен знімок є у двох варіантах: name.png (світлий) і name-dark.png (темний) — показуємо під тему сайту.
+    // Кожен знімок є у трьох варіантах: name.png (світлий), name-dark.png (темний) і name-glass.png («Скло»).
     document.querySelectorAll("img.themed").forEach(function (im) {
-      var src = "screenshots/" + im.getAttribute("data-shot") + (dark ? "-dark" : "") + ".png";
+      var src = "screenshots/" + im.getAttribute("data-shot") + suffix() + ".png";
       if (im.getAttribute("src") !== src) im.src = src;
     });
     if (window.__gal) window.__gal();
@@ -436,8 +456,8 @@ footer a{color:var(--ink2)}
   var cur = 0, img = document.getElementById("galImg"), cap = document.getElementById("galCap");
   function show(i) {
     cur = i;
-    var s = shots[i], dark = root.getAttribute("data-theme") === "dark";
-    var src = "screenshots/" + s.n + (dark ? "-dark" : "") + ".png";
+    var s = shots[i];
+    var src = "screenshots/" + s.n + suffix() + ".png";
     if (img.getAttribute("src") !== src) {
       img.style.opacity = 0;
       setTimeout(function () { img.src = src; img.onload = function () { img.style.opacity = 1; }; }, 150);

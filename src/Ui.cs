@@ -1,4 +1,4 @@
-// Тихий ПК — кольори, шрифти й допоміжне малювання в стилі Apple.
+﻿// Тихий ПК — кольори, шрифти й допоміжне малювання в стилі Apple.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -9,7 +9,7 @@ using Microsoft.Win32;
 
 namespace TyhyiPK
 {
-    static class Ui
+    static partial class Ui
     {
         public const TextFormatFlags Left = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis;
         public const TextFormatFlags Center = Left | TextFormatFlags.HorizontalCenter;
@@ -52,8 +52,15 @@ namespace TyhyiPK
         static Font Make(float size, bool semi) { return new Font(semi ? "Segoe UI Semibold" : "Segoe UI", size); }
         static Color C(int r, int g, int b) { return Color.FromArgb(r, g, b); }
 
-        public static void ApplyTheme(bool dark)
+        public static void ApplyTheme(bool dark) { ApplyTheme(dark ? "dark" : "light"); }
+
+        // Теми: "light", "dark" або "glass" (скло — темне напівпрозоре поверх розмитих шпалер).
+        public static void ApplyTheme(string mode)
         {
+            if (mode != "dark" && mode != "glass") mode = "light";
+            Theme = mode;
+            Glass = mode == "glass";
+            bool dark = mode != "light";
             Dark = dark;
             if (!dark)
             {
@@ -77,6 +84,7 @@ namespace TyhyiPK
                 ShadowAlpha = 60;
                 Side = C(30, 30, 33); CardLine = C(52, 52, 56);
             }
+            if (Glass) GlassPalette();
         }
 
         public static bool SystemDark()
@@ -131,7 +139,7 @@ namespace TyhyiPK
         public static Color Mix(Color a, Color b, float t)
         {
             t = Math.Max(0f, Math.Min(1f, t));
-            return Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
+            return Color.FromArgb((int)(a.A + (b.A - a.A) * t), (int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
         }
 
         public static void Text(Graphics g, string s, Font f, Rectangle r, Color c, TextFormatFlags flags)
@@ -146,7 +154,7 @@ namespace TyhyiPK
             l.Bounds = r;
             l.Font = f;
             l.UseMnemonic = false;
-            Action apply = () => { l.ForeColor = fore(); l.BackColor = back(); };
+            Action apply = () => { l.ForeColor = fore(); l.BackColor = Glass ? Color.Transparent : back(); };
             apply();
             Rethemers.Add(apply);
             parent.Controls.Add(l);

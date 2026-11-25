@@ -48,7 +48,7 @@ namespace TyhyiPK
         readonly Label lblTitle, lblSub;
         readonly StatusPill pill;
         readonly ThemeSwitch themeSeg;
-        static readonly string[] ThemeKeys = { "auto", "light", "dark" };
+        static readonly string[] ThemeKeys = { "light", "dark", "glass" };
         readonly HeroCard hero;
         readonly Label lblStatus;
         readonly StatTile mCpuTemp, mGpuTemp, mTotal, mFan;
@@ -113,6 +113,9 @@ namespace TyhyiPK
             StartPosition = FormStartPosition.CenterScreen;
             Font = Ui.Body;
             BackColor = Ui.Bg;
+            Ui.Host = this;
+            DoubleBuffered = true;
+            Ui.BuildBackdrop(ClientSize);
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
             Gpu.Detect();
@@ -131,7 +134,7 @@ namespace TyhyiPK
             lblSub = Ui.MakeLabel(this, "", Ui.R(SideW + 25, 60, 360, 22), Ui.Small, Ui.CInk2, Ui.CBg);
             themeSeg = new ThemeSwitch();
             themeSeg.Bounds = Ui.R(SideW + 468, 20, 108, 32);
-            themeSeg.Selected = Math.Max(0, Array.IndexOf(ThemeKeys, Settings.Get("Theme", "auto")));
+            themeSeg.Selected = Math.Max(0, Array.IndexOf(ThemeKeys, Ui.Theme));
             themeSeg.Changed += i => { Settings.Set("Theme", ThemeKeys[i]); ApplyThemeNow(); };
             Controls.Add(themeSeg);
             pill = new StatusPill();

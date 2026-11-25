@@ -1,4 +1,4 @@
-// Тихий ПК — точка входу.
+﻿// Тихий ПК — точка входу.
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -18,7 +18,7 @@ namespace TyhyiPK
         static extern bool SetProcessDPIAware();
 
         // Ключі запуску: /tray — стартувати схованим біля годинника, /restart — перезапуск самої програми,
-        // /noadmin — не просити права адміністратора, /dark — темна тема, /wipe — стерти всі дані й вийти, /install — встановити, /uninstall — видалити програму.
+        // /noadmin — не просити права адміністратора, /dark — темна тема, /glass — «Скло», /wipe — стерти всі дані й вийти, /install — встановити, /uninstall — видалити програму.
         [STAThread]
         static void Main(string[] args)
         {
@@ -26,6 +26,7 @@ namespace TyhyiPK
             bool restart = args.Any(a => a.Equals("/restart", StringComparison.OrdinalIgnoreCase));
             bool noAdmin = args.Any(a => a.Equals("/noadmin", StringComparison.OrdinalIgnoreCase));
             bool dark = args.Any(a => a.Equals("/dark", StringComparison.OrdinalIgnoreCase));
+            bool glass = args.Any(a => a.Equals("/glass", StringComparison.OrdinalIgnoreCase));
 
             try { IsAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator); }
             catch { IsAdmin = false; }
@@ -69,7 +70,7 @@ namespace TyhyiPK
                     Ui.Scale = Math.Max(1f, g.DpiX / 96f);
             }
             catch { }
-            Ui.ApplyTheme(dark || MainForm.WantDark());
+            Ui.ApplyTheme(glass ? "glass" : dark ? "dark" : MainForm.WantTheme());
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
