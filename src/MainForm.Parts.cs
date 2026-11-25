@@ -270,6 +270,7 @@ namespace TyhyiPK
             if (loading) return;
             Settings.SetBool("AutoGame", tgGame.Checked);
             Settings.SetBool("AutoAi", tgAi.Checked);
+            Settings.SetBool("AutoEco", tgEco.Checked);
             Settings.Set("GameMode", GameModeKeys[Math.Max(0, segGame.Selected)]);
             Settings.SetBool("Night", tgNight.Checked);
             Settings.Set("NightFrom", tbFrom.Value.ToString("hh\\:mm"));
@@ -353,6 +354,8 @@ namespace TyhyiPK
         {
             string game = DetectGame();
             runningGame = game;
+            string ecoWhy;
+            if (WantEco(out ecoWhy)) { kind = "eco"; return ecoWhy; }
             if (!tgGame.Checked) game = null;
             if (game != null) { kind = "game"; return game; }
             if (runningAi != null && tgAi.Checked) { kind = "ai"; return runningAi; }
@@ -386,6 +389,7 @@ namespace TyhyiPK
             string kind;
             string game = CurrentReason(out kind);
             string target = kind == "game" ? (GameStats.ModeFor(game) ?? GameModeKeys[Math.Max(0, segGame.Selected)])
+                : kind == "eco" ? "eco"
                 : kind == "ai" ? "ai"
                 : kind == "battery" ? QuietModeKeys[Math.Max(0, segBattery.Selected)]
                 : kind == "night" ? QuietModeKeys[Math.Max(0, segNight.Selected)]
@@ -396,11 +400,11 @@ namespace TyhyiPK
             {
                 if (r.Suppressed != null && kind != r.Suppressed) r.Suppressed = null;
                 if (!r.Available) continue;
-                bool auto = kind != null && kind != r.Suppressed && Array.IndexOf(r.Keys, target) >= 0;
+                bool auto = kind != null && kind != r.Suppressed && (target == "eco" || Array.IndexOf(r.Keys, target) >= 0);
                 if (auto) autoActive = true;
                 string want = auto ? target : r.Manual;
                 r.WantRaw = want;
-                if (r.Heat && Modes.Index(want) > Modes.Index("quiet")) want = "quiet";
+                if (r.Heat && want != "eco" && Modes.Index(want) > Modes.Index("quiet")) want = "quiet";
                 bool heatStart = r.HeatJustStarted;
                 r.HeatJustStarted = false;
                 if (want == r.Current) continue;
@@ -420,6 +424,8 @@ namespace TyhyiPK
             else if (kind == "game")
                 status = autoActive ? "Запущено гру «" + game + "» — увімкнено «" + Modes.Title(target) + "»."
                     : "Запущено гру «" + game + "», але режим вибрано вручну — автоматика чекає, поки гра закриється.";
+            else if (kind == "eco")
+                status = EcoStatus(autoActive, game);
             else if (kind == "ai")
                 status = autoActive ? "Працює ШІ-модель (" + game + ") — відеокарта в режимі «ШІ», вентилятори крутяться примусово."
                     : "Працює ШІ-модель (" + game + "), але режим карти вибрано вручну — автоматика чекає, поки модель вивантажиться.";
@@ -433,6 +439,7 @@ namespace TyhyiPK
                 status = tgGame.Checked || tgAi.Checked || tgNight.Checked || tgBattery.Checked || tgHeat.Checked
                     ? "Автоматика стежить, але зараз нічого не змінює." : "Автоматика вимкнена.";
             lblStatus.Text = status;
+            SyncEco(kind == "eco");
             if (heroRules != null)
             {
                 bool anyOn = tgGame.Checked || tgAi.Checked || tgNight.Checked || tgBattery.Checked || tgHeat.Checked;
@@ -607,7 +614,7 @@ namespace TyhyiPK
                 catch { }   // датчики не повинні зупиняти програму
                 tick++;
                 try { BeginInvoke(new MethodInvoker(() => OnSnapshot(s))); } catch { }
-                Thread.Sleep(tick == 1 ? 700 : vis ? 2000 : 5000);
+                Thread.Sleep(tick == 1 ? 700 : vis && !ecoActive ? 2000 : 5000);
             }
         }
 
@@ -650,6 +657,15 @@ namespace TyhyiPK
             if (changed) EvaluateAuto();
         }
 
+        static double TotalW(Snapshot s)
+        {
+            if (s == null) return 0;
+            double t = 0;
+            if (!double.IsNaN(s.CpuPower)) t += s.CpuPower;
+            if (!double.IsNaN(s.GpuDraw)) t += s.GpuDraw;
+            return t;
+        }
+
         static string Watts(double w) { return Math.Round(w) + " Вт"; }
         static string Deg(double t) { return Math.Round(t) + "°"; }
     
@@ -665,6 +681,17 @@ namespace TyhyiPK
                 else if (!Lhm.Tried) t.Set("…", Ui.Ink3, "", false);
                 else t.Set("—", Ui.Ink3, "як увімкнути?", true);
             }
+            if (s.CpuLoad >= 0)
+                mCpuLoad.Set(s.CpuLoad + "%", s.CpuLoad >= 90 ? Ui.Orange : (Color?)null, "зараз", false);
+            if (!double.IsNaN(s.CpuPower)) mCpuPow.Set(Watts(s.CpuPower), null, "пакет", false);
+            else mCpuPow.Set("—", Ui.Ink3, Lhm.Loaded ? "немає датчика" : "як увімкнути?", !Lhm.Loaded);
+            if (!double.IsNaN(s.GpuDraw)) mGpuPow.Set(Watts(s.GpuDraw), null, "зараз", false);
+            else mGpuPow.Set("—", Ui.Ink3, Gpu.Smi != null ? "" : "немає даних", false);
+            if (!double.IsNaN(s.GpuLimit)) mGpuLim.Set(Watts(s.GpuLimit), null, "найбільше", false);
+            else mGpuLim.Set("—", Ui.Ink3, "немає даних", false);
+            if (!double.IsNaN(s.GpuFanRpm)) mGpuFan.Set(Math.Round(s.GpuFanRpm).ToString(), null, s.GpuFansForced ? "об/хв · примусово" : "об/хв", false);
+            else if (!double.IsNaN(s.GpuFanPct)) mGpuFan.Set(Math.Round(s.GpuFanPct) + "%", null, "швидкість", false);
+            else mGpuFan.Set("—", Ui.Ink3, Lhm.Loaded ? "немає датчика" : "як увімкнути?", false);
             if (s.CpuLoad >= 0)
                 sCpuLoad.Set(s.CpuLoad + "%", s.CpuLoad >= 90 ? Ui.Orange : (Color?)null, "процесора", false);
             if (!double.IsNaN(s.CpuPower)) sCpuPower.Set(Watts(s.CpuPower), null, "пакет процесора", false);
@@ -690,7 +717,7 @@ namespace TyhyiPK
                     "з " + Math.Round(s.MemTotal / GB) + " ГБ · " + pct + "%", false);
             }
             bool hasCpu = !double.IsNaN(s.CpuPower), hasGpu = !double.IsNaN(s.GpuDraw);
-            foreach (var t in new[] { mTotal, sTotal })
+            foreach (var t in new[] { sTotal })
             {
                 if (hasCpu && hasGpu) t.Set(Watts(s.CpuPower + s.GpuDraw), null, "процесор + карта", false);
                 else if (hasGpu) t.Set(Watts(s.GpuDraw), null, "лише карта", false);

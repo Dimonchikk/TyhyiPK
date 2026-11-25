@@ -1,4 +1,4 @@
-// Тихий ПК — розділ «Значок»: анімований вентилятор біля годинника, його колір, швидкість і режим «температура числом»;
+﻿// Тихий ПК — розділ «Значок»: анімований вентилятор біля годинника, його колір, швидкість і режим «температура числом»;
 // а також кнопка програми на панелі завдань: крутний вентилятор у кутку кнопки (колір — від температури) і смужка навантаження.
 using System;
 using System.Drawing;
@@ -21,7 +21,7 @@ namespace TyhyiPK
         Toggle tgTaskSpin, tgTaskBar;
         int taskLoad;
         DateTime overlayAt;
-        bool TaskSpinOn { get { return tgTaskSpin != null && tgTaskSpin.Checked && Visible; } }
+        bool TaskSpinOn { get { return tgTaskSpin != null && tgTaskSpin.Checked && Visible && !ecoActive; } }
         System.Windows.Forms.Timer fanTimer;
         int fanFrame;
         double trayTemp = double.NaN;

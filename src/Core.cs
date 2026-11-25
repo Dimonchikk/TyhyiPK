@@ -35,6 +35,8 @@ namespace TyhyiPK
                 "Процесор не скидає частоту в простої, турбо-буст працює на повну. Програми відгукуються трохи швидше, але гарячіше й гучніше."),
             new ModeInfo("super", "Супер", Color.FromArgb(137, 68, 171), Color.FromArgb(200, 140, 255),
                 "Як «Прискорений», плюс прихований план живлення «Максимальна продуктивність». Найшвидше, але найгарячіше; ноутбук швидше сідає."),
+            new ModeInfo("eco", "Еко", Color.FromArgb(36, 138, 61), Color.FromArgb(48, 209, 88),
+                "Коли вимкнули світло: процесор до 50% без прискорення, найощадливіший режим ядер. ПК бере мінімум і довше працює від батареї чи ДБЖ."),
             new ModeInfo("ai", "ШІ", Color.FromArgb(0, 128, 150), Color.FromArgb(64, 200, 224),
                 "Для локальних ШІ-моделей: відеокарта трохи обмежена, а її вентилятори крутяться примусово, щоб нічого не перегрівалося."),
         };
@@ -127,6 +129,23 @@ namespace TyhyiPK
             bool a = Run("/setacvalueindex SCHEME_CURRENT SUB_PROCESSOR " + alias + " " + ac);
             bool d = Run("/setdcvalueindex SCHEME_CURRENT SUB_PROCESSOR " + alias + " " + dc);
             return a && d;
+        }
+
+        // Через скільки секунд гасне екран (0 — ніколи). Для режиму «Еко».
+        public static Pair GetVideoIdle()
+        {
+            string o;
+            if (Run("/q SCHEME_CURRENT SUB_VIDEO VIDEOIDLE", out o) != 0) return null;
+            var ms = Regex.Matches(o, "0x[0-9a-fA-F]+");
+            if (ms.Count < 2) return null;
+            return new Pair((int)Convert.ToInt64(ms[ms.Count - 2].Value, 16), (int)Convert.ToInt64(ms[ms.Count - 1].Value, 16));
+        }
+
+        public static void SetVideoIdle(int ac, int dc)
+        {
+            Run("/setacvalueindex SCHEME_CURRENT SUB_VIDEO VIDEOIDLE " + ac);
+            Run("/setdcvalueindex SCHEME_CURRENT SUB_VIDEO VIDEOIDLE " + dc);
+            Run("/setactive SCHEME_CURRENT");
         }
 
         static bool Set(string alias, Pair p) { return p != null ? Set(alias, p.AC, p.DC) : true; }
@@ -322,11 +341,12 @@ namespace TyhyiPK
                 }
                 else
                 {
-                    int max = mode == "quiet" ? 99 : 70;
+                    int max = mode == "quiet" ? 99 : mode == "eco" ? 50 : 70;
                     ok = Set("PROCTHROTTLEMAX", max, max) && ok;
                     Set("PROCTHROTTLEMIN", MinFor(st.Min, true, max), MinFor(st.Min, false, max));
                     Set("PERFBOOSTMODE", 0, 0);
-                    Set("PERFEPP", st.Epp);
+                    if (mode == "eco") Set("PERFEPP", 100, 100);   // найбільша економія
+                    else Set("PERFEPP", st.Epp);
                 }
             }
             Run("/setactive SCHEME_CURRENT");

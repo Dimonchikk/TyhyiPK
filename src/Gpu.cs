@@ -72,6 +72,7 @@ namespace TyhyiPK
                 case "quiet": t = Default * 0.85; break;
                 case "boost": t = Default + (Max - Default) / 2; break;
                 case "ai": t = Default * 0.9; break;
+                case "eco": t = Math.Max(Min, Default * 0.5); break;
                 case "super": t = Max; break;
                 default: t = Default; break;
             }
@@ -107,6 +108,7 @@ namespace TyhyiPK
                 case "silent": return "Ліміт споживання 70% (" + w + "). Карта помітно холодніша й тихіша, але FPS у важких іграх нижчий.";
                 case "quiet": return "Ліміт споживання 85% (" + w + "). Тихіше й холодніше, а FPS майже не падає.";
                 case "normal": return "Заводський ліміт (" + w + "), як задумав виробник.";
+                case "eco": return "Еко: найменший ліміт (" + w + "), щоб ПК довше працював від батареї чи ДБЖ.";
                 case "ai":
                     return Lhm.GpuFansControllable == false
                         ? "Для локальних ШІ-моделей: ліміт 90% (" + w + "). Швидкість відповідей майже та сама, а карта холодніша. Керувати вентиляторами ця карта не дозволяє."

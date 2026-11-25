@@ -1,4 +1,4 @@
-// Тихий ПК — розгортання вікна на весь екран.
+﻿// Тихий ПК — розгортання вікна на весь екран.
 // Сторінки намальовані під ширину 600 (у вікні звичайного розміру). Коли вікно розгорнуте:
 // • вміст стоїть по центру й не розтягується безмежно;
 // • якщо місця вистачає на дві колонки — розділи сторінки (заголовок + картка) розкладаються у дві колонки,
@@ -166,6 +166,17 @@ namespace TyhyiPK
             lblSub.Width = Math.Max(Ui.S(120), Math.Min(Ui.S(360), right - Ui.S(24) - pill.Width - Ui.S(8) - lblSub.Left));
             themeSeg.Left = right - Ui.S(24) - themeSeg.Width;
             pill.Left = right - Ui.S(24) - pill.Width;
+            if (ecoBtn != null)
+            {
+                // «Еко» — посередині над сторінкою, але не налазить на заголовок і перемикач теми.
+                int titleRight = lblTitle.Left + TextRenderer.MeasureText(lblTitle.Text ?? "", lblTitle.Font).Width + Ui.S(12);
+                int x = (left + right) / 2 - ecoBtn.Width / 2;
+                x = Math.Max(x, titleRight);
+                x = Math.Min(x, themeSeg.Left - Ui.S(12) - ecoBtn.Width);
+                ecoBtn.Left = x;
+                ecoBtn.Top = themeSeg.Top;
+                lblTitle.Width = Math.Max(Ui.S(60), Math.Min(lblTitle.Width, ecoBtn.Left - Ui.S(4) - lblTitle.Left));
+            }
         }
 
         // ── Знімок і відновлення звичайного макета ──

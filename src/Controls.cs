@@ -144,14 +144,18 @@ namespace TyhyiPK
                 var t = Seg(thumb);
                 Ui.FillRound(g, new RectangleF(t.X, t.Y + Ui.S(1), t.Width, t.Height), rad - Pad,
                     Color.FromArgb(Enabled ? Ui.ShadowAlpha : Ui.ShadowAlpha / 3, 0, 0, 0));
-                Ui.FillRound(g, t, rad - Pad, Ui.Thumb);
+                // У «Склі» вибраний сегмент зафарбований кольором режиму, а текст на ньому білий — так легше читати.
+                Color thumbC = Ui.Thumb;
+                if (Ui.Glass && Accent != null && selected >= 0 && selected < items.Length && Enabled)
+                    thumbC = Color.FromArgb(170, Accent(selected));
+                Ui.FillRound(g, t, rad - Pad, thumbC);
             }
             for (int i = 0; i < items.Length; i++)
             {
                 var r = Rectangle.Round(Seg(i));
                 r.Inflate(-Ui.S(3), 0);
                 bool sel = i == selected;
-                Color c = Enabled ? (sel ? (Accent != null ? Accent(i) : Ui.Ink) : Ui.SegText) : Ui.Ink3;
+                Color c = Enabled ? (sel ? (Accent != null && !Ui.Glass ? Accent(i) : Ui.Ink) : Ui.SegText) : Ui.Ink3;
                 // У вузькому вікні сегменти вужчі — тоді текст дрібнішим шрифтом, щоб не обрізався.
                 var f = sel ? Ui.BodySemi : Ui.Body;
                 if (TextRenderer.MeasureText(items[i], Ui.BodySemi, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width > r.Width - Ui.S(8)) f = Ui.Small;

@@ -562,6 +562,45 @@ namespace TyhyiPK
         }
     }
 
+    // Кнопка «Еко» над сторінкою: листочок і напис; увімкнена — зелена.
+    class EcoButton : UiControl
+    {
+        bool on, hover;
+        readonly ToolTip tip = new ToolTip();
+        public EcoButton() { OnBg = true; Cursor = Cursors.Hand; tip.SetToolTip(this, "Еко — мінімальне споживання, коли вимкнули світло"); }
+
+        public bool On
+        {
+            get { return on; }
+            set
+            {
+                if (on == value) return;
+                on = value;
+                tip.SetToolTip(this, on ? "Еко увімкнено — натисни, щоб вимкнути" : "Еко — мінімальне споживання, коли вимкнули світло");
+                Invalidate();
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = Prep(e);
+            var r = new RectangleF(0, 0, Width - 1, Height - 1);
+            Color back = on ? Ui.Green : hover ? Ui.FillHover : Ui.Fill;
+            if (on && Ui.Glass) back = Color.FromArgb(190, Ui.Green);
+            Ui.FillRound(g, r, r.Height / 2f, back);
+            Color fore = on ? Color.White : Ui.Ink;
+            float s = Ui.S(16);
+            var size = TextRenderer.MeasureText(g, "Еко", Ui.BodySemi, Size.Empty, TextFormatFlags.NoPadding);
+            float total = s + Ui.S(6) + size.Width;
+            float x = (Width - total) / 2f;
+            Icons.Draw(g, "leaf", new RectangleF(x, (Height - s) / 2f, s, s), on ? Color.White : Ui.Green);
+            Ui.Text(g, "Еко", Ui.BodySemi, new Rectangle((int)(x + s + Ui.S(6)), 0, size.Width + Ui.S(4), Height), fore, Ui.Left);
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { hover = false; Invalidate(); base.OnMouseLeave(e); }
+    }
+
     // Головна картка «Огляду»: великий висновок і кругла іконка праворуч.
     class HeroCard : UiControl
     {

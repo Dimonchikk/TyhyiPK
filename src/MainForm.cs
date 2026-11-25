@@ -51,7 +51,7 @@ namespace TyhyiPK
         static readonly string[] ThemeKeys = { "light", "dark", "glass" };
         readonly HeroCard hero;
         readonly Label lblStatus;
-        readonly StatTile mCpuTemp, mGpuTemp, mTotal, mFan;
+        readonly StatTile mCpuTemp, mCpuLoad, mCpuPow, mFan, mGpuTemp, mGpuPow, mGpuLim, mGpuFan;
         readonly StatTile sCpuTemp, sCpuLoad, sCpuPower, sFan, sGpuTemp, sGpuPower, sMem, sTotal;
         readonly TempChart chart;
         readonly ProcList procList;
@@ -155,28 +155,36 @@ namespace TyhyiPK
             hero.Bounds = Ui.R(24, 4, 552, 72);
             hero.Set("Перевіряю комп'ютер…", "Це займе кілька секунд.", "leaf", Ui.Green);
             pageModes.Controls.Add(hero);
-            pageModes.Cards.Add(Ui.R(24, 88, 552, 88));
-            mCpuTemp = Tile(pageModes, 0, 92, 80, "Процесор");
-            mGpuTemp = Tile(pageModes, 1, 92, 80, "Відеокарта");
-            mTotal = Tile(pageModes, 2, 92, 80, "Разом");
-            mFan = Tile(pageModes, 3, 92, 80, "Кулер ЦП");
+            BuildEcoButton();
 
+            // Кожна картка: угорі показники саме цієї частини, під ними — режими.
             cpu.Id = "cpu";
-            cpu.Keys = Modes.Keys.Where(k => k != "ai").ToArray();
+            cpu.Keys = Modes.Keys.Where(k => k != "ai" && k != "eco").ToArray();
             cpu.Title = "Процесор";
             cpu.Apply = Power.Apply;
             cpu.Desc = m => Modes.Get(m).Desc;
-            pageModes.SetCaption("cpu", Ui.R(40, 188, 520, 18), "Процесор");
-            pageModes.Cards.Add(Ui.R(24, 208, 552, 112));
-            BuildRow(cpu, 224);
+            pageModes.SetCaption("cpu", Ui.R(40, 88, 520, 18), "Процесор");
+            pageModes.Cards.Add(Ui.R(24, 108, 552, 200));
+            mCpuTemp = Tile(pageModes, 0, 112, 80, "Температура");
+            mCpuLoad = Tile(pageModes, 1, 112, 80, "Навантаження");
+            mCpuPow = Tile(pageModes, 2, 112, 80, "Споживання");
+            mFan = Tile(pageModes, 3, 112, 80, "Кулер");
+            pageModes.Lines.Add(Ui.R(40, 196, 520, 0));
+            BuildRow(cpu, 208);
 
             gpu.Id = "gpu";
+            gpu.Keys = Modes.Keys.Where(k => k != "eco").ToArray();
             gpu.Title = "Відеокарта";
             gpu.Apply = Gpu.Apply;
             gpu.Desc = Gpu.Desc;
-            pageModes.SetCaption("gpu", Ui.R(40, 332, 520, 18), "Відеокарта" + (!string.IsNullOrEmpty(Gpu.Name) ? "|" + Gpu.Name : ""));
-            pageModes.Cards.Add(Ui.R(24, 352, 552, 112));
-            BuildRow(gpu, 368);
+            pageModes.SetCaption("gpu", Ui.R(40, 320, 520, 18), "Відеокарта" + (!string.IsNullOrEmpty(Gpu.Name) ? "|" + Gpu.Name : ""));
+            pageModes.Cards.Add(Ui.R(24, 340, 552, 200));
+            mGpuTemp = Tile(pageModes, 0, 344, 80, "Температура");
+            mGpuPow = Tile(pageModes, 1, 344, 80, "Споживання");
+            mGpuLim = Tile(pageModes, 2, 344, 80, "Ліміт");
+            mGpuFan = Tile(pageModes, 3, 344, 80, "Вентилятори");
+            pageModes.Lines.Add(Ui.R(40, 428, 520, 0));
+            BuildRow(gpu, 440);
 
             // ── Датчики ──
             pageSensors.Cards.Add(Ui.R(24, 8, 552, 172));
@@ -196,7 +204,7 @@ namespace TyhyiPK
             chart.Bounds = Ui.R(32, 216, 536, 184);
             pageSensors.Controls.Add(chart);
             foreach (var t in new[] { mCpuTemp, sCpuTemp }) t.SubClicked += (s, e) => ShowTempHelp();
-            foreach (var t in new[] { mFan, sFan, sCpuPower }) t.SubClicked += (s, e) => ShowTempHelp();
+            foreach (var t in new[] { mFan, sFan, sCpuPower, mCpuPow }) t.SubClicked += (s, e) => ShowTempHelp();
 
             // ── Процеси ──
             pageProcs.Cards.Add(Ui.R(24, 8, 552, 372));
@@ -246,6 +254,11 @@ namespace TyhyiPK
             pageAuto.Controls.Add(tbTo);
             segNight = MiniSeg(QuietModeKeys, Ui.R(290, y + 12, 200, 32));
             tgNight = NewToggle(y + 14);
+            y += 56;
+            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
+            RowLabel("Коли зникає світло", Ui.R(40, y + 4, 420, 26));
+            Ui.MakeLabel(pageAuto, "Від батареї ноутбука чи ДБЖ (по USB) — одразу «Еко».", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            tgEco = NewToggle(y + 14);
             y += 56;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
             segBattery = new Segmented();
@@ -313,6 +326,13 @@ namespace TyhyiPK
             {
                 var item = new ToolStripMenuItem(m.Title);
                 item.Tag = m.Key;
+                if (m.Key == "eco")
+                {
+                    item.Text = "Еко — коли немає світла";
+                    item.Click += (s, e) => ToggleEco();
+                    trayMenu.Items.Add(item);
+                    continue;
+                }
                 item.Click += (s, e) =>
                 {
                     string key = (string)((ToolStripMenuItem)s).Tag;
@@ -374,6 +394,7 @@ namespace TyhyiPK
 
             tgGame.Checked = Settings.GetBool("AutoGame", true);
             tgAi.Checked = Settings.GetBool("AutoAi", true);
+            tgEco.Checked = Settings.GetBool("AutoEco", true);
             segGame.Selected = Math.Max(0, Array.IndexOf(GameModeKeys, Settings.Get("GameMode", "boost")));
             tgNight.Checked = Settings.GetBool("Night", false);
             tbFrom.Value = ParseTime(Settings.Get("NightFrom", "23:00"), 23);
@@ -386,6 +407,7 @@ namespace TyhyiPK
 
             tgGame.Changed += (s, e) => SaveAuto();
             tgAi.Changed += (s, e) => SaveAuto();
+            tgEco.Changed += (s, e) => SaveAuto();
             segGame.ItemClicked += i => { segGame.Selected = i; SaveAuto(); };
             tgNight.Changed += (s, e) => SaveAuto();
             tbFrom.Changed += (s, e) => SaveAuto();

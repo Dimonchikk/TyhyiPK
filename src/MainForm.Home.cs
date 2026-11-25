@@ -1,4 +1,4 @@
-// Тихий ПК — головна сторінка: стан ПК одним поглядом, і значок біля годинника, що змінює колір від температури.
+﻿// Тихий ПК — головна сторінка: стан ПК одним поглядом, і значок біля годинника, що змінює колір від температури.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -19,19 +19,19 @@ namespace TyhyiPK
 
         void BuildHome()
         {
-            pageModes.SetCaption("home", Ui.R(40, 476, 300, 18), "Стан ПК");
+            pageModes.SetCaption("home", Ui.R(40, 552, 300, 18), "Стан ПК");
             var report = new LinkBtn();
             report.OnBg = true;
             report.Text = "Зробити звіт про ПК";
             report.Chevron = true;
-            report.Bounds = Ui.R(386, 472, 174, 24);
+            report.Bounds = Ui.R(386, 548, 174, 24);
             report.Click += (s, e) => ShowView(5, 7);
             pageModes.Controls.Add(report);
-            pageModes.Cards.Add(Ui.R(24, 496, 552, 88));
-            hSec = Tile(pageModes, 0, 500, 80, "Безпека");
-            hBat = Tile(pageModes, 1, 500, 80, hasBattery ? "Батарея" : "Диски");
-            hToday = Tile(pageModes, 2, 500, 80, "Сьогодні");
-            hCool = Tile(pageModes, 3, 500, 80, "Охолодження");
+            pageModes.Cards.Add(Ui.R(24, 572, 552, 88));
+            hSec = Tile(pageModes, 0, 576, 80, "Безпека");
+            hBat = Tile(pageModes, 1, 576, 80, hasBattery ? "Батарея" : "Диски");
+            hToday = Tile(pageModes, 2, 576, 80, "Сьогодні");
+            hCool = Tile(pageModes, 3, 576, 80, "Охолодження");
             hSec.SubClicked += (s, e) =>
             {
                 if (secAlert[1]) ShowView(5, 1);
@@ -120,7 +120,9 @@ namespace TyhyiPK
             if (issues.Count == 0)
             {
                 string sub = lastDefender == null ? "Перевіряю захист і диски…" :
-                    "Захист активний." + (diskState == 0 ? " Диски в нормі." : "") + (!double.IsNaN(last.CpuTemp) && last.CpuTemp < 70 ? " Температури спокійні." : "");
+                    "Захист активний." + (diskState == 0 ? " Диски в нормі." : "") + (!double.IsNaN(last.CpuTemp) && last.CpuTemp < 70 ? " Температури спокійні." : "")
+                    + (TotalW(last) > 0 ? " Зараз ПК бере ≈" + Math.Round(TotalW(last)) + " Вт." : "");
+                if (ecoActive) { hero.Set("Режим «Еко» увімкнено.", "Мінімальне споживання" + (TotalW(last) > 0 ? ": зараз ≈" + Math.Round(TotalW(last)) + " Вт" : "") + ". Вимкнути — кнопка «Еко» вгорі.", "leaf", Ui.Green); pill.Set("Усе гаразд", Ui.Green); return; }
                 hero.Set("Усе працює як слід.", sub, "leaf", Ui.Green);
                 pill.Set("Усе гаразд", Ui.Green);
             }
