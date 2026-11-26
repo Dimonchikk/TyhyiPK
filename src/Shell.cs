@@ -51,6 +51,15 @@ namespace TyhyiPK
                         }
                         g.DrawLines(pen, new[] { P(x, y, s, 0.33f, 0.5f), P(x, y, s, 0.46f, 0.63f), P(x, y, s, 0.68f, 0.38f) });
                         break;
+                    case "ai":
+                        // Іскри ШІ: велика чотирипроменева зірка і дві маленькі поруч.
+                        using (var b = new SolidBrush(c))
+                        {
+                            Sparkle(g, b, x + s * 0.42f, y + s * 0.58f, s * 0.38f);
+                            Sparkle(g, b, x + s * 0.82f, y + s * 0.2f, s * 0.17f);
+                            g.FillEllipse(b, x + s * 0.8f, y + s * 0.62f, s * 0.12f, s * 0.12f);
+                        }
+                        break;
                     case "leaf":
                         using (var p = new GraphicsPath())
                         {
@@ -183,6 +192,20 @@ namespace TyhyiPK
                         g.DrawLine(pen, P(x, y, s, 0.5f, 0.74f), P(x, y, s, 0.5f, 0.75f));
                         break;
                 }
+            }
+        }
+
+        // Чотирипроменева «іскра» з увігнутими боками.
+        static void Sparkle(Graphics g, Brush b, float cx, float cy, float r)
+        {
+            float k = r * 0.12f;
+            using (var p = new GraphicsPath())
+            {
+                p.AddBezier(cx, cy - r, cx + k, cy - k, cx + k, cy - k, cx + r, cy);
+                p.AddBezier(cx + r, cy, cx + k, cy + k, cx + k, cy + k, cx, cy + r);
+                p.AddBezier(cx, cy + r, cx - k, cy + k, cx - k, cy + k, cx - r, cy);
+                p.AddBezier(cx - r, cy, cx - k, cy - k, cx - k, cy - k, cx, cy - r);
+                g.FillPath(b, p);
             }
         }
 
@@ -562,12 +585,18 @@ namespace TyhyiPK
         }
     }
 
-    // Кнопка «Еко» над сторінкою: листочок і напис; увімкнена — зелена.
-    class EcoButton : UiControl
+    // Кнопка над сторінкою («Еко», «ШІ»): значок і напис; увімкнена — свого кольору.
+    class HeadButton : UiControl
     {
         bool on, hover;
         readonly ToolTip tip = new ToolTip();
-        public EcoButton() { OnBg = true; Cursor = Cursors.Hand; tip.SetToolTip(this, "Еко — мінімальне споживання, коли вимкнули світло"); }
+        readonly string text, icon, tipOff, tipOn;
+        readonly Func<Color> color;
+        public HeadButton(string text, string icon, Func<Color> color, string tipOff, string tipOn)
+        {
+            this.text = text; this.icon = icon; this.color = color; this.tipOff = tipOff; this.tipOn = tipOn;
+            OnBg = true; Cursor = Cursors.Hand; tip.SetToolTip(this, tipOff);
+        }
 
         public bool On
         {
@@ -576,7 +605,7 @@ namespace TyhyiPK
             {
                 if (on == value) return;
                 on = value;
-                tip.SetToolTip(this, on ? "Еко увімкнено — натисни, щоб вимкнути" : "Еко — мінімальне споживання, коли вимкнули світло");
+                tip.SetToolTip(this, on ? tipOn : tipOff);
                 Invalidate();
             }
         }
@@ -585,16 +614,17 @@ namespace TyhyiPK
         {
             var g = Prep(e);
             var r = new RectangleF(0, 0, Width - 1, Height - 1);
-            Color back = on ? Ui.Green : hover ? Ui.FillHover : Ui.Fill;
-            if (on && Ui.Glass) back = Color.FromArgb(190, Ui.Green);
+            Color accent = color();
+            Color back = on ? accent : hover ? Ui.FillHover : Ui.Fill;
+            if (on && Ui.Glass) back = Color.FromArgb(190, accent);
             Ui.FillRound(g, r, r.Height / 2f, back);
             Color fore = on ? Color.White : Ui.Ink;
             float s = Ui.S(16);
-            var size = TextRenderer.MeasureText(g, "Еко", Ui.BodySemi, Size.Empty, TextFormatFlags.NoPadding);
+            var size = TextRenderer.MeasureText(g, text, Ui.BodySemi, Size.Empty, TextFormatFlags.NoPadding);
             float total = s + Ui.S(6) + size.Width;
             float x = (Width - total) / 2f;
-            Icons.Draw(g, "leaf", new RectangleF(x, (Height - s) / 2f, s, s), on ? Color.White : Ui.Green);
-            Ui.Text(g, "Еко", Ui.BodySemi, new Rectangle((int)(x + s + Ui.S(6)), 0, size.Width + Ui.S(4), Height), fore, Ui.Left);
+            Icons.Draw(g, icon, new RectangleF(x, (Height - s) / 2f, s, s), on ? Color.White : accent);
+            Ui.Text(g, text, Ui.BodySemi, new Rectangle((int)(x + s + Ui.S(6)), 0, size.Width + Ui.S(4), Height), fore, Ui.Left);
         }
 
         protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }

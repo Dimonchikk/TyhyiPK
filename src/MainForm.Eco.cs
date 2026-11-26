@@ -11,7 +11,7 @@ namespace TyhyiPK
 {
     partial class MainForm
     {
-        EcoButton ecoBtn;
+        HeadButton ecoBtn, aiBtn;
         Toggle tgEco;
         volatile bool ecoActive;          // «Еко» зараз діє (вручну або через автоматику)
         bool ecoExtrasOn;
@@ -23,11 +23,32 @@ namespace TyhyiPK
 
         void BuildEcoButton()
         {
-            ecoBtn = new EcoButton();
-            ecoBtn.Bounds = Ui.R(SideW + 250, 20, 100, 32);
+            ecoBtn = new HeadButton("Еко", "leaf", () => Ui.Green,
+                "Еко — мінімальне споживання, коли вимкнули світло", "Еко увімкнено — натисни, щоб вимкнути");
+            ecoBtn.Bounds = Ui.R(SideW + 200, 20, 92, 32);
             ecoBtn.Click += (s, e) => ToggleEco();
             Controls.Add(ecoBtn);
             ecoBtn.BringToFront();
+            aiBtn = new HeadButton("ШІ", "ai", () => Modes.Get("ai").Color,
+                "ШІ — для локальних моделей: відеокарта 90% і примусові вентилятори", "ШІ увімкнено — натисни, щоб вимкнути");
+            aiBtn.Bounds = Ui.R(SideW + 300, 20, 84, 32);
+            aiBtn.Click += (s, e) => ToggleAi();
+            Controls.Add(aiBtn);
+            aiBtn.BringToFront();
+        }
+
+        bool AiManual { get { return Settings.GetBool("AiOn", false); } }
+        bool aiDismissed;
+
+        // «ШІ» вручну: відеокарта в режимі «ШІ». Вимикає «Еко» — разом вони не мають сенсу.
+        void ToggleAi()
+        {
+            bool on = !(gpu.Current == "ai" || gpu.WantRaw == "ai");
+            Settings.SetBool("AiOn", on);
+            aiDismissed = !on && runningAi != null;   // вимкнув, поки працює модель — не вмикати знову до наступного запуску
+            if (on) { Settings.SetBool("Eco", false); ecoDismissed = true; }
+            foreach (var r in rows) if (r.Suppressed == "ai") r.Suppressed = null;
+            EvaluateAuto();
         }
 
         void ToggleEco()
@@ -35,6 +56,7 @@ namespace TyhyiPK
             // Якщо «Еко» увімкнула автоматика (зникло світло), кнопка вимикає його до повернення живлення.
             bool on = !ecoActive;
             Settings.SetBool("Eco", on);
+            if (on) Settings.SetBool("AiOn", false);
             if (!on && ecoAuto) ecoDismissed = true;
             if (on) ecoDismissed = false;
             foreach (var r in rows) if (r.Suppressed == "eco") r.Suppressed = null;

@@ -358,7 +358,9 @@ namespace TyhyiPK
             if (WantEco(out ecoWhy)) { kind = "eco"; return ecoWhy; }
             if (!tgGame.Checked) game = null;
             if (game != null) { kind = "game"; return game; }
-            if (runningAi != null && tgAi.Checked) { kind = "ai"; return runningAi; }
+            if (runningAi == null) aiDismissed = false;
+            if (AiManual) { kind = "ai"; return "вручну"; }
+            if (runningAi != null && tgAi.Checked && !aiDismissed) { kind = "ai"; return runningAi; }
             if (hasBattery && tgBattery.Checked && OnBattery()) { kind = "battery"; return null; }
             if (tgNight.Checked && IsNight(DateTime.Now)) { kind = "night"; return null; }
             kind = null;
@@ -400,7 +402,7 @@ namespace TyhyiPK
             {
                 if (r.Suppressed != null && kind != r.Suppressed) r.Suppressed = null;
                 if (!r.Available) continue;
-                bool auto = kind != null && kind != r.Suppressed && (target == "eco" || Array.IndexOf(r.Keys, target) >= 0);
+                bool auto = kind != null && kind != r.Suppressed && (target == "eco" || (target == "ai" && r == gpu) || Array.IndexOf(r.Keys, target) >= 0);
                 if (auto) autoActive = true;
                 string want = auto ? target : r.Manual;
                 r.WantRaw = want;
@@ -427,7 +429,8 @@ namespace TyhyiPK
             else if (kind == "eco")
                 status = EcoStatus(autoActive, game);
             else if (kind == "ai")
-                status = autoActive ? "Працює ШІ-модель (" + game + ") — відеокарта в режимі «ШІ», вентилятори крутяться примусово."
+                status = game == "вручну" ? (autoActive ? "Увімкнено «ШІ» — відеокарта на 90%, вентилятори крутяться примусово." : "«ШІ» увімкнено, але режим карти вибрано вручну.")
+                    : autoActive ? "Працює ШІ-модель (" + game + ") — відеокарта в режимі «ШІ», вентилятори крутяться примусово."
                     : "Працює ШІ-модель (" + game + "), але режим карти вибрано вручну — автоматика чекає, поки модель вивантажиться.";
             else if (kind == "battery")
                 status = autoActive ? "Працює від батареї — увімкнено «" + Modes.Title(target) + "»."
@@ -440,6 +443,7 @@ namespace TyhyiPK
                     ? "Автоматика стежить, але зараз нічого не змінює." : "Автоматика вимкнена.";
             lblStatus.Text = status;
             SyncEco(kind == "eco");
+            if (aiBtn != null) aiBtn.On = gpu.Current == "ai" || gpu.WantRaw == "ai";
             if (heroRules != null)
             {
                 bool anyOn = tgGame.Checked || tgAi.Checked || tgNight.Checked || tgBattery.Checked || tgHeat.Checked;

@@ -170,11 +170,15 @@ namespace TyhyiPK
             {
                 // «Еко» — посередині над сторінкою, але не налазить на заголовок і перемикач теми.
                 int titleRight = lblTitle.Left + TextRenderer.MeasureText(lblTitle.Text ?? "", lblTitle.Font).Width + Ui.S(12);
-                int x = (left + right) / 2 - ecoBtn.Width / 2;
+                // «Еко» і «ШІ» поруч, групою посередині.
+                int gap = Ui.S(8), w = ecoBtn.Width + gap + aiBtn.Width;
+                int x = (left + right) / 2 - w / 2;
                 x = Math.Max(x, titleRight);
-                x = Math.Min(x, themeSeg.Left - Ui.S(12) - ecoBtn.Width);
+                x = Math.Min(x, themeSeg.Left - Ui.S(12) - w);
                 ecoBtn.Left = x;
                 ecoBtn.Top = themeSeg.Top;
+                aiBtn.Left = x + ecoBtn.Width + gap;
+                aiBtn.Top = themeSeg.Top;
                 lblTitle.Width = Math.Max(Ui.S(60), Math.Min(lblTitle.Width, ecoBtn.Left - Ui.S(4) - lblTitle.Left));
             }
         }

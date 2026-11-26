@@ -173,7 +173,7 @@ namespace TyhyiPK
             BuildRow(cpu, 208);
 
             gpu.Id = "gpu";
-            gpu.Keys = Modes.Keys.Where(k => k != "eco").ToArray();
+            gpu.Keys = Modes.Keys.Where(k => k != "eco" && k != "ai").ToArray();
             gpu.Title = "Відеокарта";
             gpu.Apply = Gpu.Apply;
             gpu.Desc = Gpu.Desc;
@@ -326,6 +326,13 @@ namespace TyhyiPK
             {
                 var item = new ToolStripMenuItem(m.Title);
                 item.Tag = m.Key;
+                if (m.Key == "ai")
+                {
+                    item.Text = "ШІ — для локальних моделей";
+                    item.Click += (s, e) => ToggleAi();
+                    trayMenu.Items.Add(item);
+                    continue;
+                }
                 if (m.Key == "eco")
                 {
                     item.Text = "Еко — коли немає світла";
