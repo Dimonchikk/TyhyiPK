@@ -708,6 +708,7 @@ namespace TyhyiPK
                 TimeSpan up; try { up = TimeSpan.FromMilliseconds(GetTickCount64()); } catch { up = TimeSpan.FromMilliseconds(Environment.TickCount & int.MaxValue); }
                 sUptime.Set(up.TotalHours >= 24 ? (int)up.TotalDays + " д " + up.Hours + " год" : (int)up.TotalHours + " год " + up.Minutes + " хв", null, "без перезапуску", false);
                 try { sProcs.Set(System.Diagnostics.Process.GetProcesses().Length.ToString(), null, "запущено", false); } catch { }
+                ShowNetDisk();
             }
             if (s.CpuLoad >= 0)
                 sCpuLoad.Set(s.CpuLoad + "%", s.CpuLoad >= 90 ? Ui.Orange : (Color?)null, "зараз", false);
