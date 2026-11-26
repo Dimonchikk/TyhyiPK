@@ -52,7 +52,7 @@ namespace TyhyiPK
         readonly HeroCard hero;
         readonly Label lblStatus;
         readonly StatTile mCpuTemp, mCpuLoad, mCpuPow, mFan, mGpuTemp, mGpuPow, mGpuLim, mGpuFan;
-        readonly StatTile sCpuTemp, sCpuLoad, sCpuPower, sFan, sGpuTemp, sGpuPower, sMem, sTotal;
+        readonly StatTile sCpuTemp, sCpuLoad, sCpuPower, sFan, sGpuTemp, sGpuPower, sGpuLim, sGpuFan, sMem, sTotal, sUptime, sProcs;
         readonly TempChart chart;
         readonly ProcList procList;
         readonly Toggle tgGame, tgAi, tgNight, tgBattery, tgHeat, tgAutorun;
@@ -187,21 +187,30 @@ namespace TyhyiPK
             BuildRow(gpu, 440);
 
             // ── Датчики ──
-            pageSensors.Cards.Add(Ui.R(24, 8, 552, 172));
-            pageSensors.Lines.Add(Ui.R(40, 92, 520, 0));
-            sCpuTemp = Tile(pageSensors, 0, 12, 80, "Процесор");
-            sCpuLoad = Tile(pageSensors, 1, 12, 80, "Навантаження");
-            sCpuPower = Tile(pageSensors, 2, 12, 80, "Споживання ЦП");
-            sFan = Tile(pageSensors, 3, 12, 80, "Кулер ЦП");
-            sGpuTemp = Tile(pageSensors, 0, 93, 79, "Відеокарта");
-            sGpuPower = Tile(pageSensors, 1, 93, 79, "Споживання карти");
-            sMem = Tile(pageSensors, 2, 93, 79, "Пам'ять");
-            sTotal = Tile(pageSensors, 3, 93, 79, "Разом");
-            pageSensors.SetCaption("chart", Ui.R(40, 192, 520, 18), "Температура|за останні 10 хвилин");
-            pageSensors.Cards.Add(Ui.R(24, 212, 552, 192));
+            // Окремі картки для процесора, відеокарти й системи — як на «Огляді».
+            pageSensors.SetCaption("scpu", Ui.R(40, 8, 520, 18), "Процесор");
+            pageSensors.Cards.Add(Ui.R(24, 28, 552, 88));
+            sCpuTemp = Tile(pageSensors, 0, 32, 80, "Температура");
+            sCpuLoad = Tile(pageSensors, 1, 32, 80, "Навантаження");
+            sCpuPower = Tile(pageSensors, 2, 32, 80, "Споживання");
+            sFan = Tile(pageSensors, 3, 32, 80, "Кулер");
+            pageSensors.SetCaption("sgpu", Ui.R(40, 128, 520, 18), "Відеокарта" + (!string.IsNullOrEmpty(Gpu.Name) ? "|" + Gpu.Name : ""));
+            pageSensors.Cards.Add(Ui.R(24, 148, 552, 88));
+            sGpuTemp = Tile(pageSensors, 0, 152, 80, "Температура");
+            sGpuPower = Tile(pageSensors, 1, 152, 80, "Споживання");
+            sGpuLim = Tile(pageSensors, 2, 152, 80, "Ліміт");
+            sGpuFan = Tile(pageSensors, 3, 152, 80, "Вентилятори");
+            pageSensors.SetCaption("ssys", Ui.R(40, 248, 520, 18), "Система");
+            pageSensors.Cards.Add(Ui.R(24, 268, 552, 88));
+            sMem = Tile(pageSensors, 0, 272, 80, "Пам'ять");
+            sTotal = Tile(pageSensors, 1, 272, 80, "Разом");
+            sUptime = Tile(pageSensors, 2, 272, 80, "Увімкнено");
+            sProcs = Tile(pageSensors, 3, 272, 80, "Процеси");
+            pageSensors.SetCaption("chart", Ui.R(40, 368, 520, 18), "Температура|за останні 10 хвилин");
+            pageSensors.Cards.Add(Ui.R(24, 388, 552, 192));
             chart = new TempChart();
             chart.Data = history;
-            chart.Bounds = Ui.R(32, 216, 536, 184);
+            chart.Bounds = Ui.R(32, 392, 536, 184);
             pageSensors.Controls.Add(chart);
             foreach (var t in new[] { mCpuTemp, sCpuTemp }) t.SubClicked += (s, e) => ShowTempHelp();
             foreach (var t in new[] { mFan, sFan, sCpuPower, mCpuPow }) t.SubClicked += (s, e) => ShowTempHelp();

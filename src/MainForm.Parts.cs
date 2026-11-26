@@ -660,6 +660,8 @@ namespace TyhyiPK
             if (changed) EvaluateAuto();
         }
 
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern ulong GetTickCount64();
+
         static double TotalW(Snapshot s)
         {
             if (s == null) return 0;
@@ -690,14 +692,26 @@ namespace TyhyiPK
             else mCpuPow.Set("—", Ui.Ink3, Lhm.Loaded ? "немає датчика" : "як увімкнути?", !Lhm.Loaded);
             if (!double.IsNaN(s.GpuDraw)) mGpuPow.Set(Watts(s.GpuDraw), null, "зараз", false);
             else mGpuPow.Set("—", Ui.Ink3, Gpu.Smi != null ? "" : "немає даних", false);
-            if (!double.IsNaN(s.GpuLimit)) mGpuLim.Set(Watts(s.GpuLimit), null, "найбільше", false);
-            else mGpuLim.Set("—", Ui.Ink3, "немає даних", false);
-            if (!double.IsNaN(s.GpuFanRpm)) mGpuFan.Set(Math.Round(s.GpuFanRpm).ToString(), null, s.GpuFansForced ? "об/хв · примусово" : "об/хв", false);
-            else if (!double.IsNaN(s.GpuFanPct)) mGpuFan.Set(Math.Round(s.GpuFanPct) + "%", null, "швидкість", false);
-            else mGpuFan.Set("—", Ui.Ink3, Lhm.Loaded ? "немає датчика" : "як увімкнути?", false);
+            foreach (var t in new[] { mGpuLim, sGpuLim })
+            {
+                if (!double.IsNaN(s.GpuLimit)) t.Set(Watts(s.GpuLimit), null, "найбільше", false);
+                else t.Set("—", Ui.Ink3, "немає даних", false);
+            }
+            foreach (var t in new[] { mGpuFan, sGpuFan })
+            {
+                if (!double.IsNaN(s.GpuFanRpm)) t.Set(Math.Round(s.GpuFanRpm).ToString(), null, s.GpuFansForced ? "об/хв · примусово" : "об/хв", false);
+                else if (!double.IsNaN(s.GpuFanPct)) t.Set(Math.Round(s.GpuFanPct) + "%", null, "швидкість", false);
+                else t.Set("—", Ui.Ink3, Lhm.Loaded ? "немає датчика" : "як увімкнути?", false);
+            }
+            if (pageSensors.Visible)
+            {
+                TimeSpan up; try { up = TimeSpan.FromMilliseconds(GetTickCount64()); } catch { up = TimeSpan.FromMilliseconds(Environment.TickCount & int.MaxValue); }
+                sUptime.Set(up.TotalHours >= 24 ? (int)up.TotalDays + " д " + up.Hours + " год" : (int)up.TotalHours + " год " + up.Minutes + " хв", null, "без перезапуску", false);
+                try { sProcs.Set(System.Diagnostics.Process.GetProcesses().Length.ToString(), null, "запущено", false); } catch { }
+            }
             if (s.CpuLoad >= 0)
-                sCpuLoad.Set(s.CpuLoad + "%", s.CpuLoad >= 90 ? Ui.Orange : (Color?)null, "процесора", false);
-            if (!double.IsNaN(s.CpuPower)) sCpuPower.Set(Watts(s.CpuPower), null, "пакет процесора", false);
+                sCpuLoad.Set(s.CpuLoad + "%", s.CpuLoad >= 90 ? Ui.Orange : (Color?)null, "зараз", false);
+            if (!double.IsNaN(s.CpuPower)) sCpuPower.Set(Watts(s.CpuPower), null, "пакет", false);
             else sCpuPower.Set("—", Ui.Ink3, Lhm.Loaded ? "немає датчика" : "як увімкнути?", !Lhm.Loaded);
             foreach (var t in new[] { mFan, sFan })
             {
@@ -710,7 +724,7 @@ namespace TyhyiPK
                 else t.Set("—", Ui.Ink3, Gpu.Smi != null ? "" : "немає даних", false);
             }
             if (!double.IsNaN(s.GpuDraw))
-                sGpuPower.Set(Watts(s.GpuDraw), null, !double.IsNaN(s.GpuLimit) ? "з " + Watts(s.GpuLimit) + " ліміту" : "", false);
+                sGpuPower.Set(Watts(s.GpuDraw), null, "зараз", false);
             else
                 sGpuPower.Set("—", Ui.Ink3, Gpu.Smi != null ? "" : "немає даних", false);
             if (!double.IsNaN(s.MemTotal) && s.MemTotal > 0)
