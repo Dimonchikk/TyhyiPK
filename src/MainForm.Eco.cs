@@ -1,5 +1,5 @@
 ﻿// Тихий ПК — режим «Еко»: мінімальне споживання, коли вимкнули світло і ПК працює від батареї чи ДБЖ.
-// Кнопка «Еко» — посередині над сторінкою. Процесор до 50% без прискорення, відеокарта на найменшому
+// Вмикається кнопкою «Еко» посередині над сторінкою. Процесор до 50% без прискорення, відеокарта на найменшому
 // ліміті, екран тьмяніший і гасне через 3 хвилини, програма сама рідше опитує датчики й не анімує значок.
 using System;
 using System.Linq;
@@ -12,7 +12,6 @@ namespace TyhyiPK
     partial class MainForm
     {
         HeadButton ecoBtn, aiBtn;
-        Toggle tgEco;
         volatile bool ecoActive;          // «Еко» зараз діє (вручну або через автоматику)
         bool ecoExtrasOn;
 
@@ -46,35 +45,27 @@ namespace TyhyiPK
             bool on = !(gpu.Current == "ai" || gpu.WantRaw == "ai");
             Settings.SetBool("AiOn", on);
             aiDismissed = !on && runningAi != null;   // вимкнув, поки працює модель — не вмикати знову до наступного запуску
-            if (on) { Settings.SetBool("Eco", false); ecoDismissed = true; }
+            if (on) Settings.SetBool("Eco", false);
             foreach (var r in rows) if (r.Suppressed == "ai") r.Suppressed = null;
             EvaluateAuto();
         }
 
         void ToggleEco()
         {
-            // Якщо «Еко» увімкнула автоматика (зникло світло), кнопка вимикає його до повернення живлення.
             bool on = !ecoActive;
             Settings.SetBool("Eco", on);
             if (on) Settings.SetBool("AiOn", false);
-            if (!on && ecoAuto) ecoDismissed = true;
-            if (on) ecoDismissed = false;
             foreach (var r in rows) if (r.Suppressed == "eco") r.Suppressed = null;
             EvaluateAuto();
         }
 
-        bool ecoAuto, ecoDismissed, ecoChecked;
+        bool ecoChecked;
 
-        // Чи має зараз діяти «Еко». kindReason — «вручну» або «немає світла».
+        // «Еко» вмикається лише кнопкою.
         bool WantEco(out string why)
         {
-            why = null;
-            bool power = tgEco != null && tgEco.Checked && hasBattery && OnBattery();
-            if (!power) ecoDismissed = false;          // світло повернулося — наступного разу знову автоматично
-            ecoAuto = power && !ecoDismissed;
-            if (EcoManual) { why = "manual"; return true; }
-            if (ecoAuto) { why = "power"; return true; }
-            return false;
+            why = EcoManual ? "manual" : null;
+            return EcoManual;
         }
 
         // Після кожної оцінки автоматики: увімкнути чи прибрати додаткову економію.
@@ -177,7 +168,7 @@ namespace TyhyiPK
         {
             if (!autoActive) return "«Еко» увімкнено, але режими вибрано вручну.";
             string w = TotalW(last) > 0 ? " Зараз ≈" + Math.Round(TotalW(last)) + " Вт." : "";
-            return (why == "power" ? "Немає світла — увімкнено «Еко»: мінімальне споживання, щоб довше протриматися." : "Увімкнено «Еко»: процесор до 50%, відеокарта на мінімумі, екран тьмяніший.") + w;
+            return "Увімкнено «Еко»: процесор до 50%, відеокарта на мінімумі, екран тьмяніший." + w;
         }
     }
 }

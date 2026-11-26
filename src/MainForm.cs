@@ -256,11 +256,6 @@ namespace TyhyiPK
             tgNight = NewToggle(y + 14);
             y += 56;
             pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
-            RowLabel("Коли зникає світло", Ui.R(40, y + 4, 420, 26));
-            Ui.MakeLabel(pageAuto, "Від батареї ноутбука чи ДБЖ (по USB) — одразу «Еко».", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
-            tgEco = NewToggle(y + 14);
-            y += 56;
-            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
             segBattery = new Segmented();
             tgBattery = new Toggle();
             if (hasBattery)
@@ -401,7 +396,6 @@ namespace TyhyiPK
 
             tgGame.Checked = Settings.GetBool("AutoGame", true);
             tgAi.Checked = Settings.GetBool("AutoAi", true);
-            tgEco.Checked = Settings.GetBool("AutoEco", true);
             segGame.Selected = Math.Max(0, Array.IndexOf(GameModeKeys, Settings.Get("GameMode", "boost")));
             tgNight.Checked = Settings.GetBool("Night", false);
             tbFrom.Value = ParseTime(Settings.Get("NightFrom", "23:00"), 23);
@@ -414,7 +408,6 @@ namespace TyhyiPK
 
             tgGame.Changed += (s, e) => SaveAuto();
             tgAi.Changed += (s, e) => SaveAuto();
-            tgEco.Changed += (s, e) => SaveAuto();
             segGame.ItemClicked += i => { segGame.Selected = i; SaveAuto(); };
             tgNight.Changed += (s, e) => SaveAuto();
             tbFrom.Changed += (s, e) => SaveAuto();

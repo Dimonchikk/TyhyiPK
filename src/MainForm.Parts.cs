@@ -270,7 +270,6 @@ namespace TyhyiPK
             if (loading) return;
             Settings.SetBool("AutoGame", tgGame.Checked);
             Settings.SetBool("AutoAi", tgAi.Checked);
-            Settings.SetBool("AutoEco", tgEco.Checked);
             Settings.Set("GameMode", GameModeKeys[Math.Max(0, segGame.Selected)]);
             Settings.SetBool("Night", tgNight.Checked);
             Settings.Set("NightFrom", tbFrom.Value.ToString("hh\\:mm"));
