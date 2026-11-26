@@ -981,8 +981,8 @@ namespace TyhyiPK
                 if (h != null) h.Handled = true;
             };
             Controls.Add(tb);
-            Ui.Rethemers.Add(() => { tb.BackColor = Ui.Solid(Ui.Fill); tb.ForeColor = Ui.Ink; Invalidate(); });
-            tb.BackColor = Ui.Solid(Ui.Fill);
+            Ui.Rethemers.Add(() => { tb.BackColor = Ui.SolidOnCard(Ui.Fill); tb.ForeColor = Ui.Ink; Invalidate(); });
+            tb.BackColor = Ui.SolidOnCard(Ui.Fill);
             tb.ForeColor = Ui.Ink;
         }
 
@@ -1021,7 +1021,8 @@ namespace TyhyiPK
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = Prep(e);
-            Ui.FillRound(g, new RectangleF(0, 0, Width - 1, Height - 1), Ui.S(8), Ui.Fill);
+            // Поле вводу Windows не буває напівпрозорим, тому в «Склі» вся плашка того ж суцільного кольору, що й поле.
+            Ui.FillRound(g, new RectangleF(0, 0, Width - 1, Height - 1), Ui.S(8), Ui.Glass ? tb.BackColor : Ui.Fill);
         }
     }
 

@@ -46,6 +46,15 @@ namespace TyhyiPK
             return Color.FromArgb((int)(Bg.R + (c.R - Bg.R) * a), (int)(Bg.G + (c.G - Bg.G) * a), (int)(Bg.B + (c.B - Bg.B) * a));
         }
 
+        // Те саме, але поверх картки (поле вводу на картці): спершу відтінок картки, потім сам колір.
+        public static Color SolidOnCard(Color c)
+        {
+            if (c.A == 255) return c;
+            Color b = Solid(Card);
+            float a = c.A / 255f;
+            return Color.FromArgb((int)(b.R + (c.R - b.R) * a), (int)(b.G + (c.G - b.G) * a), (int)(b.B + (c.B - b.B) * a));
+        }
+
         // Фон елемента: у звичайних темах — суцільний колір, у «Склі» — шматок розмитого тла під ним
         // плюс напівпрозорий відтінок поверхні (картки, бокової панелі).
         public static void PaintBack(Graphics g, Control c, Color surface)
