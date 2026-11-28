@@ -27,13 +27,15 @@ namespace TyhyiPK
         static readonly string[] GameModeKeys = { "boost", "super" };
         static readonly string[] QuietModeKeys = { "silent", "quiet" };
         static readonly int[] HeatLimits = { 80, 85, 90 };
-        static readonly string[] NavTitles = { "Огляд", "Датчики", "Програми", "Автоматика", "Енергія", "Сервіс", "Значок" };
-        static readonly string[] NavIcons = { "overview", "sensors", "apps", "auto", "energy", "service", "fan" };
+        // Розділи бокового меню. Номери (Sec*) використовуються по всьому коду замість «магічних» чисел.
+        const int SecHome = 0, SecModes = 1, SecSens = 2, SecApps = 3, SecAuto = 4, SecEnergy = 5, SecProtect = 6, SecCare = 7, SecSettings = 8;
+        static readonly string[] NavTitles = { "Огляд", "Режими", "Датчики", "Програми", "Автоматика", "Енергія", "Захист", "Догляд", "Параметри" };
+        static readonly string[] NavIcons = { "overview", "gauge", "sensors", "apps", "auto", "energy", "service", "wrench", "gear" };
         static readonly string[] NavSubs =
         {
-            "Твій комп'ютер з першого погляду.", "Температури, диски й батарея.", "Що працює зараз і що стартує з Windows.",
-            "Налаштуй один раз — далі все саме.", "Скільки споживає ПК і скільки це коштує.", "Захист, очищення й турбота про систему.",
-            "Живий вентилятор біля годинника.",
+            "Твій комп'ютер з першого погляду.", "Наскільки тихо чи швидко працюють процесор і відеокарта.", "Температури, диски й батарея.",
+            "Що працює зараз і що стартує з Windows.", "Налаштуй один раз — далі все саме.", "Скільки споживає ПК і скільки це коштує.",
+            "Антивірус, майнери й мережа.", "Очищення, Windows, збої й інтернет.", "Запуск, оновлення, дані програми й значок.",
         };
         const int SideW = 200, HeaderH = 92;
         int autoBottom;
@@ -41,7 +43,7 @@ namespace TyhyiPK
 
         readonly Row cpu = new Row(), gpu = new Row();
         readonly Row[] rows;
-        readonly Page pageModes, pageSensors, pageProcs, pageAuto;
+        readonly Page pageHome, pageModes, pageGeneral, pageSensors, pageProcs, pageAuto;
         readonly Page[] pages;
         readonly Segmented segGame, segNight, segBattery, segHeat;
         readonly Sidebar nav;
@@ -141,20 +143,22 @@ namespace TyhyiPK
             pill.Bounds = Ui.R(SideW + 376, 56, 200, 28);
             Controls.Add(pill);
 
+            pageHome = NewPage();
             pageModes = NewPage();
+            pageGeneral = NewPage();
             pageSensors = NewPage();
             pageProcs = NewPage();
             pageAuto = NewPage();
             pageEnergy = NewPage();
             pageService = NewPage();
             pageIcon = NewPage();
-            pages = new[] { pageModes, pageSensors, pageProcs, pageAuto, pageEnergy, pageService, pageIcon };
+            pages = new[] { pageHome, pageModes, pageSensors, pageProcs, pageAuto, pageEnergy, pageService, pageGeneral, pageIcon };
 
             // ── Огляд ──
             hero = new HeroCard();
             hero.Bounds = Ui.R(24, 4, 552, 72);
             hero.Set("Перевіряю комп'ютер…", "Це займе кілька секунд.", "leaf", Ui.Green);
-            pageModes.Controls.Add(hero);
+            pageHome.Controls.Add(hero);
             BuildEcoButton();
 
             // Кожна картка: угорі показники саме цієї частини, під ними — режими.
@@ -163,28 +167,28 @@ namespace TyhyiPK
             cpu.Title = "Процесор";
             cpu.Apply = Power.Apply;
             cpu.Desc = m => Modes.Get(m).Desc;
-            pageModes.SetCaption("cpu", Ui.R(40, 88, 520, 18), "Процесор");
-            pageModes.Cards.Add(Ui.R(24, 108, 552, 200));
-            mCpuTemp = Tile(pageModes, 0, 112, 80, "Температура");
-            mCpuLoad = Tile(pageModes, 1, 112, 80, "Навантаження");
-            mCpuPow = Tile(pageModes, 2, 112, 80, "Споживання");
-            mFan = Tile(pageModes, 3, 112, 80, "Кулер");
-            pageModes.Lines.Add(Ui.R(40, 196, 520, 0));
-            BuildRow(cpu, 208);
+            pageModes.SetCaption("cpu", Ui.R(40, 8, 520, 18), "Процесор");
+            pageModes.Cards.Add(Ui.R(24, 28, 552, 200));
+            mCpuTemp = Tile(pageModes, 0, 32, 80, "Температура");
+            mCpuLoad = Tile(pageModes, 1, 32, 80, "Навантаження");
+            mCpuPow = Tile(pageModes, 2, 32, 80, "Споживання");
+            mFan = Tile(pageModes, 3, 32, 80, "Кулер");
+            pageModes.Lines.Add(Ui.R(40, 116, 520, 0));
+            BuildRow(cpu, 128);
 
             gpu.Id = "gpu";
             gpu.Keys = Modes.Keys.Where(k => k != "eco" && k != "ai").ToArray();
             gpu.Title = "Відеокарта";
             gpu.Apply = Gpu.Apply;
             gpu.Desc = Gpu.Desc;
-            pageModes.SetCaption("gpu", Ui.R(40, 320, 520, 18), "Відеокарта" + (!string.IsNullOrEmpty(Gpu.Name) ? "|" + Gpu.Name : ""));
-            pageModes.Cards.Add(Ui.R(24, 340, 552, 200));
-            mGpuTemp = Tile(pageModes, 0, 344, 80, "Температура");
-            mGpuPow = Tile(pageModes, 1, 344, 80, "Споживання");
-            mGpuLim = Tile(pageModes, 2, 344, 80, "Ліміт");
-            mGpuFan = Tile(pageModes, 3, 344, 80, "Вентилятори");
-            pageModes.Lines.Add(Ui.R(40, 428, 520, 0));
-            BuildRow(gpu, 440);
+            pageModes.SetCaption("gpu", Ui.R(40, 240, 520, 18), "Відеокарта" + (!string.IsNullOrEmpty(Gpu.Name) ? "|" + Gpu.Name : ""));
+            pageModes.Cards.Add(Ui.R(24, 260, 552, 200));
+            mGpuTemp = Tile(pageModes, 0, 264, 80, "Температура");
+            mGpuPow = Tile(pageModes, 1, 264, 80, "Споживання");
+            mGpuLim = Tile(pageModes, 2, 264, 80, "Ліміт");
+            mGpuFan = Tile(pageModes, 3, 264, 80, "Вентилятори");
+            pageModes.Lines.Add(Ui.R(40, 348, 520, 0));
+            BuildRow(gpu, 360);
 
             // ── Датчики ──
             // Окремі картки для процесора, відеокарти й системи — як на «Огляді».
@@ -293,29 +297,6 @@ namespace TyhyiPK
             lblSleep = Ui.MakeLabel(pageAuto, "", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
             tgSleep = NewToggle(y + 14);
             y += 56;
-            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
-            RowLabel("Перевіряти оновлення", Ui.R(40, y + 4, 420, 26));
-            Ui.MakeLabel(pageAuto, "Програма сама питає GitHub про нову версію під час запуску й щогодини.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
-            tgUpdates = NewToggle(y + 14);
-            y += 56;
-            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
-            RowLabel("Підсумок тижня", Ui.R(40, y + 4, 420, 26));
-            Ui.MakeLabel(pageAuto, "У неділю ввечері: години роботи, найвищі температури й вартість електрики.", Ui.R(40, y + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
-            tgWeekly = NewToggle(y + 14);
-            y += 56;
-            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
-            RowLabel("Запускати разом з Windows", Ui.R(40, y + 1, 400, 55));
-            tgAutorun = NewToggle(y + 14);
-            y += 56;
-            pageAuto.Lines.Add(Ui.R(40, y, 536, 0));
-            var wipe = new LinkBtn();
-            wipe.Text = "Видалити всі дані програми…";
-            wipe.Tint = () => Ui.Red;
-            wipe.Chevron = true;
-            wipe.Bounds = Ui.R(40, y + 1, 520, 42);
-            wipe.Click += (s, e) => WipeAll();
-            pageAuto.Controls.Add(wipe);
-            y += 44;
             pageAuto.Cards.Add(Ui.R(24, 8, 552, y - 8));
             Ui.MakeLabel(pageAuto,
                 "Автоматика вмикає режим одразу для процесора й відеокарти. Якщо вибрати режим вручну, вона не втручається, поки умова не зникне" +
@@ -323,6 +304,34 @@ namespace TyhyiPK
                 " Захист від перегріву спрацьовує, коли температура тримається вище межі понад 10 секунд, і обмежує режим до «Тихого», поки не охолоне. Хрестик ховає вікно біля годинника.",
                 Ui.R(28, y + 12, 544, 80), Ui.Small, Ui.CInk2, Ui.CBg);
             autoBottom = y + 100;
+
+            // ── Параметри → Загальні: запуск, оновлення й дані програми ──
+            {
+            int gy = 8;
+            RowLabel(pageGeneral, "Перевіряти оновлення", Ui.R(40, gy + 4, 420, 26));
+            Ui.MakeLabel(pageGeneral, "Програма сама питає GitHub про нову версію під час запуску й щогодини.", Ui.R(40, gy + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            tgUpdates = NewToggle(pageGeneral, gy + 14);
+            gy += 56;
+            pageGeneral.Lines.Add(Ui.R(40, gy, 536, 0));
+            RowLabel(pageGeneral, "Підсумок тижня", Ui.R(40, gy + 4, 420, 26));
+            Ui.MakeLabel(pageGeneral, "У неділю ввечері: години роботи, найвищі температури й вартість електрики.", Ui.R(40, gy + 29, 460, 22), Ui.Small, Ui.CInk2, Ui.CCard);
+            tgWeekly = NewToggle(pageGeneral, gy + 14);
+            gy += 56;
+            pageGeneral.Lines.Add(Ui.R(40, gy, 536, 0));
+            RowLabel(pageGeneral, "Запускати разом з Windows", Ui.R(40, gy + 1, 400, 55));
+            tgAutorun = NewToggle(pageGeneral, gy + 14);
+            gy += 56;
+            pageGeneral.Lines.Add(Ui.R(40, gy, 536, 0));
+            var wipe = new LinkBtn();
+            wipe.Text = "Видалити всі дані програми…";
+            wipe.Tint = () => Ui.Red;
+            wipe.Chevron = true;
+            wipe.Bounds = Ui.R(40, gy + 1, 520, 42);
+            wipe.Click += (s, e) => WipeAll();
+            pageGeneral.Controls.Add(wipe);
+            gy += 44;
+            pageGeneral.Cards.Add(Ui.R(24, 8, 552, gy - 8));
+            }
 
             BuildEnergy();
             BuildSecurity();

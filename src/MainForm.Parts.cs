@@ -80,24 +80,28 @@ namespace TyhyiPK
             return s;
         }
 
-        Label RowLabel(string text, Rectangle r)
+        Label RowLabel(string text, Rectangle r) { return RowLabel(pageAuto, text, r); }
+
+        Label RowLabel(Page page, string text, Rectangle r)
         {
-            var l = Ui.MakeLabel(pageAuto, text, r, Ui.Body, Ui.CInk, Ui.CCard);
+            var l = Ui.MakeLabel(page, text, r, Ui.Body, Ui.CInk, Ui.CCard);
             l.TextAlign = ContentAlignment.MiddleLeft;
             return l;
         }
 
-        Toggle NewToggle(int y)
+        Toggle NewToggle(int y) { return NewToggle(pageAuto, y); }
+
+        Toggle NewToggle(Page page, int y)
         {
             var t = new Toggle();
             t.Bounds = Ui.R(514, y, 46, 28);
-            pageAuto.Controls.Add(t);
+            page.Controls.Add(t);
             return t;
         }
 
         void ShowPage(int i) { ShowView(i, 0); }
 
-        bool SensorsVisible() { return views != null && views[1].Any(v => v.Visible); }
+        bool SensorsVisible() { return views != null && views[SecSens].Any(v => v.Visible); }
 
         // Показати сторінку i, підрозділ k (кожен підрозділ — окрема сторінка).
         void ShowView(int i, int k)
@@ -119,13 +123,14 @@ namespace TyhyiPK
             lblTitle.Text = hasSubs ? nav.Subs[i][k] : NavTitles[i];
             lblSub.Text = hasSubs && viewSubs[i] != null ? viewSubs[i][k] : NavSubs[i];
             if (show == pageProcs) { UpdateProcs(); procTimer.Interval = 1000; }
-            if (i == 2 && k == 1) ReloadAutoruns();
+            if (show == autorunView) ReloadAutoruns();
             if (show == pageEnergy) RefreshEnergy();
-            if (i == 1) RefreshHealth();
-            if (i == 1 && k == sensDust) RefreshAdvice();
-            if (i == 3 && k == 1) RefreshAdvice();
-            if (i == 5) OnSvcShown(k);
-            if (show == pageModes) UpdateHome();
+            if (i == SecSens) RefreshHealth();
+            if (i == SecSens && k == sensDust) RefreshAdvice();
+            if (show == gamesView || show == testView) RefreshAdvice();
+            int svc = svcPages == null ? -1 : Array.IndexOf(svcPages, show);
+            if (svc >= 0) OnSvcShown(svc);
+            if (show == pageHome) UpdateHome();
             if (fanTimer != null) ApplyTraySettings();
             if (layoutReady) PlaceHeader();
         }
@@ -653,7 +658,7 @@ namespace TyhyiPK
             }
             UpdateTrayIcon(s);
             UpdateGpuFans(s);
-            if (Visible && pageModes.Visible) UpdateHome();
+            if (Visible && pageHome.Visible) UpdateHome();
             if (Visible) ShowSnapshotTiles(s);
             bool changed = TrackHeat(cpu, s.CpuTempFromBoard ? double.NaN : s.CpuTemp);
             changed |= TrackHeat(gpu, s.GpuTemp);
@@ -676,7 +681,7 @@ namespace TyhyiPK
     
         void ShowSnapshotTiles(Snapshot s)
         {
-            foreach (var t in new[] { mCpuTemp, sCpuTemp })
+            foreach (var t in new[] { mCpuTemp, sCpuTemp, hCpuT })
             {
                 if (!double.IsNaN(s.CpuTemp))
                 {
@@ -719,7 +724,7 @@ namespace TyhyiPK
                 if (!double.IsNaN(s.Fan)) t.Set(Math.Round(s.Fan).ToString(), null, s.FanIsCpu ? "об/хв" : "об/хв · вентилятор", false);
                 else t.Set("—", Ui.Ink3, Lhm.Loaded ? "немає датчика" : "як увімкнути?", !Lhm.Loaded);
             }
-            foreach (var t in new[] { mGpuTemp, sGpuTemp })
+            foreach (var t in new[] { mGpuTemp, sGpuTemp, hGpuT })
             {
                 if (!double.IsNaN(s.GpuTemp)) t.Set(Deg(s.GpuTemp), Ui.TempColor(s.GpuTemp), "температура", false);
                 else t.Set("—", Ui.Ink3, Gpu.Smi != null ? "" : "немає даних", false);
@@ -735,7 +740,7 @@ namespace TyhyiPK
                     "з " + Math.Round(s.MemTotal / GB) + " ГБ · " + pct + "%", false);
             }
             bool hasCpu = !double.IsNaN(s.CpuPower), hasGpu = !double.IsNaN(s.GpuDraw);
-            foreach (var t in new[] { sTotal })
+            foreach (var t in new[] { sTotal, hTotalW })
             {
                 if (hasCpu && hasGpu) t.Set(Watts(s.CpuPower + s.GpuDraw), null, "процесор + карта", false);
                 else if (hasGpu) t.Set(Watts(s.GpuDraw), null, "лише карта", false);

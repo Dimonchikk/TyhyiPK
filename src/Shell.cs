@@ -51,6 +51,25 @@ namespace TyhyiPK
                         }
                         g.DrawLines(pen, new[] { P(x, y, s, 0.33f, 0.5f), P(x, y, s, 0.46f, 0.63f), P(x, y, s, 0.68f, 0.38f) });
                         break;
+                    case "wrench":
+                        // Гайковий ключ: ручка по діагоналі й відкрита головка вгорі праворуч.
+                        g.DrawLine(pen, P(x, y, s, 0.18f, 0.82f), P(x, y, s, 0.56f, 0.44f));
+                        g.DrawArc(pen, x + s * 0.5f, y + s * 0.1f, s * 0.4f, s * 0.4f, 100, 250);
+                        break;
+                    case "gear":
+                        // Шестерня: коло з вісьмома зубцями і отвір посередині.
+                        {
+                            float cx = x + s / 2f, cy = y + s / 2f;
+                            for (int i = 0; i < 8; i++)
+                            {
+                                double ang = i * Math.PI / 4;
+                                g.DrawLine(pen, cx + (float)Math.Cos(ang) * s * 0.3f, cy + (float)Math.Sin(ang) * s * 0.3f,
+                                    cx + (float)Math.Cos(ang) * s * 0.44f, cy + (float)Math.Sin(ang) * s * 0.44f);
+                            }
+                            g.DrawEllipse(pen, cx - s * 0.3f, cy - s * 0.3f, s * 0.6f, s * 0.6f);
+                            g.DrawEllipse(pen, cx - s * 0.11f, cy - s * 0.11f, s * 0.22f, s * 0.22f);
+                        }
+                        break;
                     case "ai":
                         // Іскри ШІ: велика чотирипроменева зірка і дві маленькі поруч.
                         using (var b = new SolidBrush(c))

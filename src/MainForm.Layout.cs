@@ -163,7 +163,7 @@ namespace TyhyiPK
             lblTitle.Left = left + Ui.S(22);
             lblSub.Left = left + Ui.S(25);
             lblTitle.Width = Math.Max(Ui.S(120), Math.Min(Ui.S(380), right - Ui.S(24) - themeSeg.Width - Ui.S(8) - lblTitle.Left));
-            lblSub.Width = Math.Max(Ui.S(120), Math.Min(Ui.S(360), right - Ui.S(24) - pill.Width - Ui.S(8) - lblSub.Left));
+            lblSub.Width = Math.Max(Ui.S(120), right - Ui.S(24) - pill.Width - Ui.S(8) - lblSub.Left);
             themeSeg.Left = right - Ui.S(24) - themeSeg.Width;
             pill.Left = right - Ui.S(24) - pill.Width;
             if (ecoBtn != null)

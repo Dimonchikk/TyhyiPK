@@ -10,7 +10,7 @@ namespace TyhyiPK
 {
     partial class MainForm
     {
-        StatTile hSec, hBat, hToday, hCool;
+        StatTile hSec, hBat, hToday, hCool, hCpuT, hGpuT, hTotalW, hModes;
         DefenderStatus lastDefender;
         int diskState = -1;        // -1 невідомо, 0 добре, 1 увага, 2 погано
         int diskCount;
@@ -19,29 +19,45 @@ namespace TyhyiPK
 
         void BuildHome()
         {
-            pageModes.SetCaption("home", Ui.R(40, 552, 300, 18), "Стан ПК");
+            // «Зараз»: температури, споживання й поточні режими — а самі режими перемикаються в «Режими → Керування».
+            pageHome.SetCaption("now", Ui.R(40, 88, 300, 18), "Зараз");
+            var go = new LinkBtn();
+            go.OnBg = true;
+            go.Text = "Змінити режим";
+            go.Chevron = true;
+            go.Bounds = Ui.R(386, 84, 174, 24);
+            go.Click += (s, e) => ShowView(SecModes, 0);
+            pageHome.Controls.Add(go);
+            pageHome.Cards.Add(Ui.R(24, 108, 552, 88));
+            hCpuT = Tile(pageHome, 0, 112, 80, "Процесор");
+            hGpuT = Tile(pageHome, 1, 112, 80, "Відеокарта");
+            hTotalW = Tile(pageHome, 2, 112, 80, "Разом");
+            hModes = Tile(pageHome, 3, 112, 80, "Режим");
+            hModes.SubClicked += (s, e) => ShowView(SecModes, 0);
+
+            pageHome.SetCaption("home", Ui.R(40, 208, 300, 18), "Стан ПК");
             var report = new LinkBtn();
             report.OnBg = true;
             report.Text = "Зробити звіт про ПК";
             report.Chevron = true;
-            report.Bounds = Ui.R(386, 548, 174, 24);
-            report.Click += (s, e) => ShowView(5, 7);
-            pageModes.Controls.Add(report);
-            pageModes.Cards.Add(Ui.R(24, 572, 552, 88));
-            hSec = Tile(pageModes, 0, 576, 80, "Безпека");
-            hBat = Tile(pageModes, 1, 576, 80, hasBattery ? "Батарея" : "Диски");
-            hToday = Tile(pageModes, 2, 576, 80, "Сьогодні");
-            hCool = Tile(pageModes, 3, 576, 80, "Охолодження");
+            report.Bounds = Ui.R(386, 204, 174, 24);
+            report.Click += (s, e) => ShowView(SecHome, 1);
+            pageHome.Controls.Add(report);
+            pageHome.Cards.Add(Ui.R(24, 228, 552, 88));
+            hSec = Tile(pageHome, 0, 232, 80, "Безпека");
+            hBat = Tile(pageHome, 1, 232, 80, hasBattery ? "Батарея" : "Диски");
+            hToday = Tile(pageHome, 2, 232, 80, "Сьогодні");
+            hCool = Tile(pageHome, 3, 232, 80, "Охолодження");
             hSec.SubClicked += (s, e) =>
             {
-                if (secAlert[1]) ShowView(5, 1);
-                else if (secAlert[2]) ShowView(5, 2);
-                else if (secAlert[3] && !secAlert[0]) ShowView(2, 1);
-                else ShowView(5, 0);
+                if (secAlert[1]) ShowView(SecProtect, 1);
+                else if (secAlert[2]) ShowView(SecProtect, 2);
+                else if (secAlert[3] && !secAlert[0]) ShowView(SecApps, 1);
+                else ShowView(SecProtect, 0);
             };
-            hBat.SubClicked += (s, e) => ShowView(1, hasBattery ? sensBattery : sensDisks);
-            hToday.SubClicked += (s, e) => ShowView(4, 0);
-            hCool.SubClicked += (s, e) => ShowView(1, sensDust);
+            hBat.SubClicked += (s, e) => ShowView(SecSens, hasBattery ? sensBattery : sensDisks);
+            hToday.SubClicked += (s, e) => ShowView(SecEnergy, 0);
+            hCool.SubClicked += (s, e) => ShowView(SecSens, sensDust);
             hSec.Set("…", Ui.Ink3, "перевіряю", false);
             hBat.Set("…", Ui.Ink3, "", false);
             hToday.Set("…", Ui.Ink3, "", false);
@@ -64,6 +80,12 @@ namespace TyhyiPK
         void UpdateHome()
         {
             if (hSec == null) return;
+            if (hModes != null)
+            {
+                string cm = cpu.Available ? Modes.Title(cpu.Current) : "—";
+                hModes.Set(ecoActive ? "Еко" : cm, ecoActive ? Ui.Green : (Color?)null,
+                    gpu.Available ? "карта: " + Modes.Title(gpu.Current) : "процесор", true);
+            }
             // Безпека
             bool any = secAlert.Any(a => a);
             bool defBad = lastDefender != null && (lastDefender.RealTime == false || lastDefender.Firewall == false);
@@ -148,56 +170,72 @@ namespace TyhyiPK
             return v;
         }
 
+        Page testView, gamesView, autorunView;
+
         void SetupNavSubs()
         {
             var sensNames = new List<string> { "Показники" };
             var sensViews = new List<Page> { pageSensors };
             if (hasBattery) { sensBattery = sensNames.Count; sensNames.Add("Батарея"); sensViews.Add(View(secPages[4])); }
-            sensDisks = sensNames.Count; sensNames.Add("Накопичувачі"); sensViews.Add(View(secPages[5]));
-            sensDust = sensNames.Count; sensNames.Add("Пил і охолодження"); sensViews.Add(View(dustSec));
-            sensNames.Add("Тест режимів"); sensViews.Add(View(testSec));
-            nav.Subs = new[] { null, sensNames.ToArray(), new[] { "Запущені", "Автозапуск" }, new[] { "Правила", "Ігри" }, null, SvcTitles, null };
+            sensDisks = sensNames.Count; sensNames.Add("Диски"); sensViews.Add(View(secPages[5]));
+            sensDust = sensNames.Count; sensNames.Add("Охолодження"); sensViews.Add(View(dustSec));
+            testView = View(testSec);
+            autorunView = View(secPages[3]);
+            gamesView = View(gamesSec);
+
+            // Розділ → підрозділи (як у боковому меню): назви, сторінки й підписи під заголовком.
+            nav.Subs = new[]
+            {
+                new[] { "Зведення", "Звіт про ПК" },
+                new[] { "Керування", "Тест режимів" },
+                sensNames.ToArray(),
+                new[] { "Запущені", "Автозапуск", "Ігри" },
+                null,
+                null,
+                new[] { "Антивірус", "Майнери", "Мережа" },
+                new[] { "Очищення", "Windows", "Збої", "Інтернет" },
+                new[] { "Загальні", "Значок" },
+            };
             views = new[]
             {
-                new[] { pageModes },
+                new[] { pageHome, svcPages[7] },
+                new[] { pageModes, testView },
                 sensViews.ToArray(),
-                new[] { pageProcs, View(secPages[3]) },
-                new[] { pageAuto, View(gamesSec) },
+                new[] { pageProcs, autorunView, gamesView },
+                new[] { pageAuto },
                 new[] { pageEnergy },
-                svcPages,
-                new[] { pageIcon },
+                new[] { svcPages[0], svcPages[1], svcPages[2] },
+                new[] { svcPages[3], svcPages[5], svcPages[6], svcPages[4] },
+                new[] { pageGeneral, pageIcon },
             };
-            var sensSubs = new List<string> { "Температури, навантаження й споживання." };
+            var sensSubs = new List<string> { "Температури, навантаження й споживання наживо." };
             if (hasBattery) sensSubs.Add("Знос і заряд батареї — як «Стан батареї» в iPhone.");
-            sensSubs.AddRange(new[] { "Стан SSD і жорстких дисків.", "Чи не час почистити ПК від пилу.", "Що дає «Тихий» режим саме на твоєму ПК." });
+            sensSubs.AddRange(new[] { "Стан SSD і жорстких дисків.", "Чи не час почистити ПК від пилу." });
             viewSubs = new[]
             {
-                null,
+                new[] { "Твій комп'ютер з першого погляду.", "Одна картинка про ПК, щоб попросити допомоги." },
+                new[] { "Тихо чи швидко працюють процесор і відеокарта.", "Що дає «Тихий» режим саме на твоєму ПК." },
                 sensSubs.ToArray(),
-                new[] { "Що працює зараз.", "Що стартує разом з Windows." },
-                new[] { "Налаштуй один раз — далі все саме.", "Яка гра найбільше гріє ПК." },
+                new[] { "Що працює зараз.", "Що стартує разом з Windows.", "Яка гра найбільше гріє ПК." },
                 null,
-                new[]
-                {
-                    "Антивірус і брандмауер Windows.", "Хто вантажить ПК, коли ти ним не користуєшся.", "Які програми зараз в інтернеті.",
-                    "Звільни місце на диску.", "Швидкість, пінг і VPN.", "Цілісність системних файлів.", "Сині екрани й вильоти програм.",
-                    "Картинка про ПК, щоб попросити допомоги.",
-                },
                 null,
+                new[] { "Антивірус і брандмауер Windows.", "Хто вантажить ПК, коли ти ним не користуєшся.", "Які програми зараз в інтернеті." },
+                new[] { "Звільни місце на диску.", "Цілісність системних файлів.", "Сині екрани й вильоти програм.", "Швидкість, пінг і VPN." },
+                new[] { "Запуск, оновлення й дані програми. Тема — перемикач угорі праворуч.", "Живий вентилятор біля годинника." },
             };
             nav.SubClicked += GoSub;
             RefreshNavDots();
 
             // Велика картка-висновок угорі кожної сторінки.
             heroSens = AddHero(pageSensors, "Читаю датчики…", "Температури з'являться за кілька секунд.", "thermo");
-            if (hasBattery) heroBat = AddHero(views[1][sensBattery], "Перевіряю батарею…", "", "battery");
-            heroDisks = AddHero(views[1][sensDisks], "Перевіряю диски…", "", "disk");
-            heroDust = AddHero(views[1][sensDust], "Збираю дані про охолодження.", "", "thermo");
-            heroTest = AddHero(views[1][sensDust + 1], "Тест ще не проводився.", "Дізнайся, наскільки «Тихий» режим холодніший на твоєму ПК.", "gauge");
+            if (hasBattery) heroBat = AddHero(views[SecSens][sensBattery], "Перевіряю батарею…", "", "battery");
+            heroDisks = AddHero(views[SecSens][sensDisks], "Перевіряю диски…", "", "disk");
+            heroDust = AddHero(views[SecSens][sensDust], "Збираю дані про охолодження.", "", "thermo");
+            heroTest = AddHero(testView, "Тест ще не проводився.", "Дізнайся, наскільки «Тихий» режим холодніший на твоєму ПК.", "gauge");
             heroProcs = AddHero(pageProcs, "Програми, що працюють зараз.", "", "apps");
-            heroAutorun = AddHero(views[2][1], "Автозапуск.", "Читаю список…", "apps");
+            heroAutorun = AddHero(autorunView, "Автозапуск.", "Читаю список…", "apps");
             heroRules = AddHero(pageAuto, "Автоматика.", "", "auto");
-            heroGames = AddHero(views[3][1], "Ігор ще не було.", "Пограй — і тут з'явиться, яка гра найбільше гріє ПК.", "game");
+            heroGames = AddHero(gamesView, "Ігор ще не було.", "Пограй — і тут з'явиться, яка гра найбільше гріє ПК.", "game");
             heroEnergy = AddHero(pageEnergy, "Енергія.", "", "energy");
             heroClean = AddHero(svcPages[3], "Рахую, скільки можна звільнити…", "", "trash");
             heroSpeed = AddHero(svcPages[4], "Швидкість ще не перевіряли.", "Натисни «Перевірити швидкість» — це займе близько 35 секунд.", "net");

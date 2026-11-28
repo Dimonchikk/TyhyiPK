@@ -1,4 +1,4 @@
-// Тихий ПК — вкладка «Сервіс»: очищення, інтернет, збої, перевірка Windows, поради, звіт.
+﻿// Тихий ПК — вкладка «Сервіс»: очищення, інтернет, збої, перевірка Windows, поради, звіт.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -219,7 +219,16 @@ namespace TyhyiPK
 
         }
 
-        void ShowSvcPage(int i) { if (views != null) ShowView(5, i); }
+        // Підрозділ «Сервісу» за його номером у svcPages — знайти, в якому він тепер розділі меню.
+        void ShowSvcPage(int i)
+        {
+            if (views == null || svcPages == null) return;
+            for (int s = 0; s < views.Length; s++)
+            {
+                int k = Array.IndexOf(views[s], svcPages[i]);
+                if (k >= 0) { ShowView(s, k); return; }
+            }
+        }
 
         // Що оновити, коли відкрили підрозділ «Сервісу».
         void OnSvcShown(int i)
